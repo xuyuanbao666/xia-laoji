@@ -517,85 +517,9 @@ const AnalysisScreen: React.FC = () => {
             </View>
           </View>
         </View>
-
-        {/* 每日详情模态框 */}
-        <Modal visible={selectedDay !== null} transparent animationType="slide">
-          <View style={styles.dayModalOverlay}>
-            <View style={styles.dayModal}>
-              <View style={styles.dayModalHeader}>
-                <Text style={styles.dayModalTitle}>
-                  {selectedDay ? formatSelectedDate(selectedDay) : ''}
-                </Text>
-                <TouchableOpacity
-                  style={styles.dayModalClose}
-                  onPress={() => setSelectedDay(null)}
-                >
-                  <Text style={styles.dayModalCloseText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={styles.dayModalContent}>
-                {selectedDayRecords.length === 0 ? (
-                  <View style={styles.dayModalEmpty}>
-                    <Text style={styles.dayModalEmptyIcon}>📭</Text>
-                    <Text style={styles.dayModalEmptyText}>这天没有记录</Text>
-                  </View>
-                ) : (
-                  <>
-                    {/* 按餐次分组 */}
-                    {(['breakfast', 'lunch', 'dinner', 'snack'] as const).map((meal) => {
-                      const mealRecords = selectedDayRecords.filter((r) => r.meal === meal);
-                      if (mealRecords.length === 0) return null;
-
-                      const mealTotalCal = mealRecords.reduce(
-                        (sum, r) => sum + (r.totalNutrition?.calories || 0), 0
-                      );
-                      const allFoods = mealRecords.flatMap((r) => r.foods || []);
-                      const mergedFoods = mergeFoods(allFoods);
-                      const info = mealLabels[meal];
-
-                      return (
-                        <View key={meal} style={styles.dayMealBlock}>
-                          <View style={styles.dayMealHeader}>
-                            <View style={styles.dayMealTitleRow}>
-                              <Text style={styles.dayMealIcon}>{info.icon}</Text>
-                              <Text style={styles.dayMealLabel}>{info.label}</Text>
-                            </View>
-                            <Text style={styles.dayMealCal}>{Math.round(mealTotalCal)} 千卡</Text>
-                          </View>
-                          {mergedFoods.map((food: any, i: number) => (
-                            <View key={i} style={styles.dayFoodRow}>
-                              <View style={styles.dayFoodDot} />
-                              <Text style={styles.dayFoodName} numberOfLines={1}>
-                                {food.name}
-                              </Text>
-                              <Text style={styles.dayFoodAmount}>
-                                {Math.round(food.amount)}g
-                              </Text>
-                              <Text style={styles.dayFoodCal}>
-                                {Math.round(food.nutrition?.calories || 0)} 千卡
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      );
-                    })}
-
-                    {/* 总计 */}
-                    <View style={styles.dayTotalRow}>
-                      <Text style={styles.dayTotalLabel}>总计</Text>
-                      <Text style={styles.dayTotalCal}>
-                        {Math.round(selectedDayRecords.reduce(
-                          (sum, r) => sum + (r.totalNutrition?.calories || 0), 0
-                        ))} 千卡
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
+      ) : (
+        /* 日报/周报用列表视图 */
+        dailyData.dates.map((date, index) => {
       ) : (
         /* 日报/周报用列表视图 */
         dailyData.dates.map((date, index) => {
@@ -659,6 +583,85 @@ const AnalysisScreen: React.FC = () => {
           );
         })
       )}
+
+      {/* 每日详情模态框 */}
+      <Modal visible={selectedDay !== null} transparent animationType="slide">
+        <View style={styles.dayModalOverlay}>
+          <View style={styles.dayModal}>
+            <View style={styles.dayModalHeader}>
+              <Text style={styles.dayModalTitle}>
+                {selectedDay ? formatSelectedDate(selectedDay) : ''}
+              </Text>
+              <TouchableOpacity
+                style={styles.dayModalClose}
+                onPress={() => setSelectedDay(null)}
+              >
+                <Text style={styles.dayModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.dayModalContent}>
+              {selectedDayRecords.length === 0 ? (
+                <View style={styles.dayModalEmpty}>
+                  <Text style={styles.dayModalEmptyIcon}>📭</Text>
+                  <Text style={styles.dayModalEmptyText}>这天没有记录</Text>
+                </View>
+              ) : (
+                <>
+                  {/* 按餐次分组 */}
+                  {(['breakfast', 'lunch', 'dinner', 'snack'] as const).map((meal) => {
+                    const mealRecords = selectedDayRecords.filter((r) => r.meal === meal);
+                    if (mealRecords.length === 0) return null;
+
+                    const mealTotalCal = mealRecords.reduce(
+                      (sum, r) => sum + (r.totalNutrition?.calories || 0), 0
+                    );
+                    const allFoods = mealRecords.flatMap((r) => r.foods || []);
+                    const mergedFoods = mergeFoods(allFoods);
+                    const info = mealLabels[meal];
+
+                    return (
+                      <View key={meal} style={styles.dayMealBlock}>
+                        <View style={styles.dayMealHeader}>
+                          <View style={styles.dayMealTitleRow}>
+                            <Text style={styles.dayMealIcon}>{info.icon}</Text>
+                            <Text style={styles.dayMealLabel}>{info.label}</Text>
+                          </View>
+                          <Text style={styles.dayMealCal}>{Math.round(mealTotalCal)} 千卡</Text>
+                        </View>
+                        {mergedFoods.map((food: any, i: number) => (
+                          <View key={i} style={styles.dayFoodRow}>
+                            <View style={styles.dayFoodDot} />
+                            <Text style={styles.dayFoodName} numberOfLines={1}>
+                              {food.name}
+                            </Text>
+                            <Text style={styles.dayFoodAmount}>
+                              {Math.round(food.amount)}g
+                            </Text>
+                            <Text style={styles.dayFoodCal}>
+                              {Math.round(food.nutrition?.calories || 0)} 千卡
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  })}
+
+                  {/* 总计 */}
+                  <View style={styles.dayTotalRow}>
+                    <Text style={styles.dayTotalLabel}>总计</Text>
+                    <Text style={styles.dayTotalCal}>
+                      {Math.round(selectedDayRecords.reduce(
+                        (sum, r) => sum + (r.totalNutrition?.calories || 0), 0
+                      ))} 千卡
+                    </Text>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* 底部间距 */}
       <View style={styles.bottomSpacing} />
