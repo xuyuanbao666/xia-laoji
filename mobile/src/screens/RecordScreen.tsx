@@ -10,8 +10,8 @@ import {
   Platform,
   ScrollView,
   TextInput,
+  Modal,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useFoodStore } from '../store/foodStore';
 import { useRecordStore } from '../store/recordStore';
@@ -75,6 +75,30 @@ const RecordScreen: React.FC = () => {
 
   // 日期选择器
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+
+  // 日历辅助函数
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const generateCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(calendarYear, calendarMonth);
+    const firstDay = getFirstDayOfMonth(calendarYear, calendarMonth);
+    const days: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    return days;
+  };
+
+  const handleDateSelect = (day: number) => {
+    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    setSelectedDate(dateStr);
+    setShowDatePicker(false);
+  };
+
+  const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
 
   // 当页面获得焦点时，检查是否有新的餐次参数
   useFocusEffect(
@@ -194,23 +218,102 @@ const RecordScreen: React.FC = () => {
           </View>
         </TouchableOpacity>
 
-        {/* 原生日期选择器 */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={new Date(selectedDate + 'T00:00:00')}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-            maximumDate={new Date()}
-            minimumDate={new Date(2020, 0, 1)}
-            onChange={(event, date) => {
-              setShowDatePicker(Platform.OS === 'ios');
-              if (date) {
-                const dateStr = date.toISOString().split('T')[0];
-                setSelectedDate(dateStr);
-              }
-            }}
-          />
-        )}
+        {/* 自定义日历模态 */}
+        <Modal visible={showDatePicker} transparent animationType="fade">
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowDatePicker(false)}
+          >
+            <View style={styles.calendarModal}>
+              <TouchableOpacity activeOpacity={1}>
+                {/* 日历头部 */}
+                <View style={styles.calendarHeader}>
+                  <TouchableOpacity
+                    style={styles.calendarNavBtn}
+                    onPress={() => {
+                      if (calendarMonth === 0) {
+                        setCalendarMonth(11);
+                        setCalendarYear(calendarYear - 1);
+                      } else {
+                        setCalendarMonth(calendarMonth - 1);
+                      }
+                    }}
+                  >
+                    <Text style={styles.calendarNavText}>◀</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.calendarTitle}>
+                    {calendarYear}年 {monthNames[calendarMonth]}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.calendarNavBtn}
+                    onPress={() => {
+                      if (calendarMonth === 11) {
+                        setCalendarMonth(0);
+                        setCalendarYear(calendarYear + 1);
+                      } else {
+                        setCalendarMonth(calendarMonth + 1);
+                      }
+                    }}
+                  >
+                    <Text style={styles.calendarNavText}>▶</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 星期标题 */}
+                <View style={styles.calendarWeekRow}>
+                  {weekDays.map((day) => (
+                    <Text key={day} style={styles.calendarWeekText}>{day}</Text>
+                  ))}
+                </View>
+
+                {/* 日期网格 */}
+                <View style={styles.calendarGrid}>
+                  {generateCalendarDays().map((day, index) => {
+                    if (day === null) return <View key={`empty-${index}`} style={styles.calendarDay} />;
+                    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isSelected = dateStr === selectedDate;
+                    const isTodayDate = dateStr === new Date().toISOString().split('T')[0];
+                    const isFuture = new Date(dateStr + 'T00:00:00') > new Date();
+
+                    return (
+                      <TouchableOpacity
+                        key={day}
+                        style={[
+                          styles.calendarDay,
+                          isSelected && styles.calendarDaySelected,
+                          isTodayDate && !isSelected && styles.calendarDayToday,
+                        ]}
+                        onPress={() => !isFuture && handleDateSelect(day)}
+                        disabled={isFuture}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.calendarDayText,
+                            isSelected && styles.calendarDayTextSelected,
+                            isTodayDate && !isSelected && styles.calendarDayTextToday,
+                            isFuture && styles.calendarDayTextDisabled,
+                          ]}
+                        >
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* 关闭按钮 */}
+                <TouchableOpacity
+                  style={styles.calendarCloseBtn}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.calendarCloseBtnText}>关闭</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* 搜索框 */}
         <View style={styles.searchContainer}>
@@ -550,6 +653,104 @@ const styles = StyleSheet.create({
   datePickerArrow: {
     fontSize: 12,
     color: '#CCCCCC',
+  },
+
+  // 日历模态
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: 320,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarNavText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  calendarWeekRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  calendarWeekText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#999999',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDay: {
+    width: '14.28%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarDaySelected: {
+    backgroundColor: '#FF6B6B',
+    borderRadius: 20,
+  },
+  calendarDayToday: {
+    backgroundColor: '#FFF0F0',
+    borderRadius: 20,
+  },
+  calendarDayText: {
+    fontSize: 15,
+    color: '#333333',
+  },
+  calendarDayTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  calendarDayTextToday: {
+    color: '#FF6B6B',
+    fontWeight: '700',
+  },
+  calendarDayTextDisabled: {
+    color: '#DDDDDD',
+  },
+  calendarCloseBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+  },
+  calendarCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
   },
 
   // 搜索框
