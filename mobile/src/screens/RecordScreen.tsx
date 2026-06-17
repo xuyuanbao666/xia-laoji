@@ -9,12 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useFoodStore } from '../store/foodStore';
 import { useRecordStore } from '../store/recordStore';
 import { Food, CreateRecordRequest } from '../types';
-import { Card, Button, Input } from '../components/common';
 import CollapsibleSection from '../components/CollapsibleSection';
 
 /**
@@ -80,10 +80,10 @@ const RecordScreen: React.FC = () => {
 
   // 餐次选项
   const mealTypes = [
-    { key: 'breakfast', label: '早餐', icon: '🌅' },
-    { key: 'lunch', label: '午餐', icon: '☀️' },
-    { key: 'dinner', label: '晚餐', icon: '🌙' },
-    { key: 'snack', label: '加餐', icon: '🍪' },
+    { key: 'breakfast', label: '早餐', icon: '🌅', color: '#FFE4B5' },
+    { key: 'lunch', label: '午餐', icon: '☀️', color: '#FFDAB9' },
+    { key: 'dinner', label: '晚餐', icon: '🌙', color: '#E6E6FA' },
+    { key: 'snack', label: '加餐', icon: '🍪', color: '#FFF0F5' },
   ];
 
   // 搜索食物
@@ -140,174 +140,240 @@ const RecordScreen: React.FC = () => {
       <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* 搜索框 */}
         <View style={styles.searchContainer}>
-          <Input
-            placeholder="搜索食物..."
-            value={keyword}
-            onChangeText={setKeyword}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-            style={styles.searchInput}
-          />
-          <Button title="搜索" onPress={handleSearch} style={styles.searchButton} />
+          <View style={styles.searchInputWrapper}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="搜索食物..."
+              placeholderTextColor="#BBBBBB"
+              value={keyword}
+              onChangeText={setKeyword}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+            />
+            {keyword.length > 0 && (
+              <TouchableOpacity onPress={() => setKeyword('')}>
+                <Text style={styles.clearIcon}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.searchButton, isLoading && styles.searchButtonDisabled]}
+            onPress={handleSearch}
+            disabled={isLoading}
+          >
+            <Text style={styles.searchButtonText}>{isLoading ? '...' : '搜索'}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* 搜索结果收纳条 */}
         {searchResults.length > 0 && (
-          <TouchableOpacity
-            style={styles.resultsToggle}
-            onPress={() => setIsResultsExpanded(!isResultsExpanded)}
+          <CollapsibleSection
+            title={`🔍 搜索结果`}
+            defaultExpanded={isResultsExpanded}
+            badge={`${searchResults.length}个`}
           >
-            <Text style={styles.resultsToggleText}>
-              搜索结果 ({searchResults.length})
-            </Text>
-            <Text style={styles.resultsToggleIcon}>
-              {isResultsExpanded ? '▼' : '▶'}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* 展开的搜索结果列表 */}
-        {isResultsExpanded && searchResults.length > 0 && (
-          <View style={styles.resultsList}>
             {searchResults.map((item) => (
               <TouchableOpacity
                 key={item._id}
                 style={[
-                  styles.foodItem,
-                  selectedFood?._id === item._id && styles.foodItemSelected,
+                  styles.foodCard,
+                  selectedFood?._id === item._id && styles.foodCardSelected,
                 ]}
                 onPress={() => handleSelectFood(item)}
+                activeOpacity={0.7}
               >
-                <View style={styles.foodInfo}>
-                  <Text style={styles.foodName}>{item.nameZh}</Text>
-                  <Text style={styles.foodCategory}>{item.category}</Text>
+                <View style={styles.foodCardLeft}>
+                  <View style={styles.foodIcon}>
+                    <Text style={styles.foodIconText}>🍽️</Text>
+                  </View>
+                  <View style={styles.foodInfo}>
+                    <Text style={styles.foodName}>{item.nameZh}</Text>
+                    <Text style={styles.foodCategory}>{item.category}</Text>
+                  </View>
                 </View>
-                <View style={styles.foodCalories}>
-                  <Text style={styles.caloriesValue}>{item.nutrition.calories}</Text>
-                  <Text style={styles.caloriesUnit}>kcal/{item.servingName}</Text>
+                <View style={styles.foodCardRight}>
+                  <Text style={styles.caloriesValue}>{Math.round(item.nutrition.calories)}</Text>
+                  <Text style={styles.caloriesUnit}>千卡/{item.servingName}</Text>
                 </View>
               </TouchableOpacity>
             ))}
-          </View>
+          </CollapsibleSection>
         )}
 
         {/* 历史记录收纳条 */}
         {history.length > 0 && (
-          <>
-            <TouchableOpacity
-              style={styles.resultsToggle}
-              onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
-            >
-              <Text style={styles.resultsToggleText}>
-                常用食物 ({history.length})
-              </Text>
-              <Text style={styles.resultsToggleIcon}>
-                {isHistoryExpanded ? '▼' : '▶'}
-              </Text>
-            </TouchableOpacity>
-
-            {isHistoryExpanded && (
-              <View style={styles.resultsList}>
-                {history.map((item) => (
-                  <TouchableOpacity
-                    key={item._id}
-                    style={[
-                      styles.foodItem,
-                      selectedFood?._id === item._id && styles.foodItemSelected,
-                    ]}
-                    onPress={() => handleSelectFood(item)}
-                  >
-                    <View style={styles.foodInfo}>
-                      <Text style={styles.foodName}>{item.nameZh}</Text>
-                      <Text style={styles.foodCategory}>{item.category}</Text>
-                    </View>
-                    <View style={styles.foodCalories}>
-                      <Text style={styles.caloriesValue}>{item.nutrition.calories}</Text>
-                      <Text style={styles.caloriesUnit}>kcal/{item.servingName}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </>
+          <CollapsibleSection
+            title="⏱️ 常用食物"
+            defaultExpanded={isHistoryExpanded}
+            badge={`${history.length}个`}
+          >
+            {history.map((item) => (
+              <TouchableOpacity
+                key={item._id}
+                style={[
+                  styles.foodCard,
+                  selectedFood?._id === item._id && styles.foodCardSelected,
+                ]}
+                onPress={() => handleSelectFood(item)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.foodCardLeft}>
+                  <View style={[styles.foodIcon, styles.foodIconHistory]}>
+                    <Text style={styles.foodIconText}>⭐</Text>
+                  </View>
+                  <View style={styles.foodInfo}>
+                    <Text style={styles.foodName}>{item.nameZh}</Text>
+                    <Text style={styles.foodCategory}>{item.category}</Text>
+                  </View>
+                </View>
+                <View style={styles.foodCardRight}>
+                  <Text style={styles.caloriesValue}>{Math.round(item.nutrition.calories)}</Text>
+                  <Text style={styles.caloriesUnit}>千卡/{item.servingName}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </CollapsibleSection>
         )}
 
         {/* 餐次选择 */}
-        <Text style={styles.sectionTitle}>选择餐次</Text>
-        <View style={styles.mealTypeRow}>
-          {mealTypes.map((meal) => (
-            <TouchableOpacity
-              key={meal.key}
-              style={[
-                styles.mealTypeItem,
-                mealType === meal.key && styles.mealTypeSelected,
-              ]}
-              onPress={() => setMealType(meal.key as CreateRecordRequest['meal'])}
-            >
-              <Text style={styles.mealTypeIcon}>{meal.icon}</Text>
-              <Text
+        <View style={styles.mealTypeSection}>
+          <Text style={styles.sectionTitle}>🍽️ 选择餐次</Text>
+          <View style={styles.mealTypeRow}>
+            {mealTypes.map((meal) => (
+              <TouchableOpacity
+                key={meal.key}
                 style={[
-                  styles.mealTypeLabel,
-                  mealType === meal.key && styles.mealTypeLabelSelected,
+                  styles.mealTypeItem,
+                  { backgroundColor: meal.color + '40' },
+                  mealType === meal.key && styles.mealTypeSelected,
+                  mealType === meal.key && { backgroundColor: meal.color, borderColor: meal.color.replace('40', '') },
                 ]}
+                onPress={() => setMealType(meal.key as CreateRecordRequest['meal'])}
+                activeOpacity={0.7}
               >
-                {meal.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text style={styles.mealTypeIcon}>{meal.icon}</Text>
+                <Text
+                  style={[
+                    styles.mealTypeLabel,
+                    mealType === meal.key && styles.mealTypeLabelSelected,
+                  ]}
+                >
+                  {meal.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* 选中食物后的添加面板 */}
         {selectedFood && (
-          <Card style={styles.selectedPanel}>
+          <View style={styles.selectedPanel}>
             <View style={styles.selectedHeader}>
-              <Text style={styles.selectedName}>{selectedFood.nameZh}</Text>
-              <TouchableOpacity onPress={() => setSelectedFood(null)}>
-                <Text style={styles.closeButton}>✕</Text>
+              <View style={styles.selectedTitleRow}>
+                <View style={styles.selectedIcon}>
+                  <Text style={styles.selectedIconText}>✅</Text>
+                </View>
+                <View>
+                  <Text style={styles.selectedName}>{selectedFood.nameZh}</Text>
+                  <Text style={styles.selectedCategory}>{selectedFood.category}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setSelectedFood(null)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.selectedNutrients}>
-              <Text style={styles.nutrientText}>
-                蛋白质 {selectedFood.nutrition.protein}g · 碳水 {selectedFood.nutrition.carbs}g · 脂肪 {selectedFood.nutrition.fat}g
-              </Text>
+
+            {/* 营养素标签 */}
+            <View style={styles.nutrientTags}>
+              <View style={[styles.nutrientTag, { backgroundColor: '#FFE4E1' }]}>
+                <Text style={styles.nutrientTagValue}>{Math.round(selectedFood.nutrition.protein)}g</Text>
+                <Text style={styles.nutrientTagLabel}>蛋白质</Text>
+              </View>
+              <View style={[styles.nutrientTag, { backgroundColor: '#FFF8DC' }]}>
+                <Text style={styles.nutrientTagValue}>{Math.round(selectedFood.nutrition.carbs)}g</Text>
+                <Text style={styles.nutrientTagLabel}>碳水</Text>
+              </View>
+              <View style={[styles.nutrientTag, { backgroundColor: '#F0FFF0' }]}>
+                <Text style={styles.nutrientTagValue}>{Math.round(selectedFood.nutrition.fat)}g</Text>
+                <Text style={styles.nutrientTagLabel}>脂肪</Text>
+              </View>
             </View>
-            <View style={styles.servingsRow}>
-              <Text style={styles.servingsLabel}>份数：</Text>
-              <Input
-                value={servings}
-                onChangeText={setServings}
-                keyboardType="numeric"
-                style={styles.servingsInput}
-              />
+
+            {/* 份数调节 */}
+            <View style={styles.servingsContainer}>
+              <Text style={styles.servingsLabel}>份数</Text>
+              <View style={styles.servingsControl}>
+                <TouchableOpacity
+                  style={styles.servingsButton}
+                  onPress={() => {
+                    const num = parseFloat(servings) || 1;
+                    if (num > 1) setServings(String(num - 1));
+                  }}
+                >
+                  <Text style={styles.servingsButtonText}>−</Text>
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.servingsInput}
+                  value={servings}
+                  onChangeText={setServings}
+                  keyboardType="numeric"
+                />
+                <TouchableOpacity
+                  style={styles.servingsButton}
+                  onPress={() => {
+                    const num = parseFloat(servings) || 1;
+                    setServings(String(num + 1));
+                  }}
+                >
+                  <Text style={styles.servingsButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
               <Text style={styles.servingsUnit}>{selectedFood.servingName}</Text>
             </View>
-            <Text style={styles.totalCalories}>
-              共 {Math.round(selectedFood.nutrition.calories * (parseFloat(servings) || 1))} kcal
-            </Text>
-            <Button
-              title={`添加到${mealTypes.find(m => m.key === mealType)?.label}`}
+
+            {/* 总热量 */}
+            <View style={styles.totalCaloriesContainer}>
+              <Text style={styles.totalCaloriesLabel}>总计</Text>
+              <Text style={styles.totalCaloriesValue}>
+                {Math.round(selectedFood.nutrition.calories * (parseFloat(servings) || 1))} 千卡
+              </Text>
+            </View>
+
+            {/* 添加按钮 */}
+            <TouchableOpacity
+              style={styles.addButton}
               onPress={handleAddFood}
-              loading={isLoading}
-            />
-          </Card>
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addButtonText}>
+                {isLoading ? '添加中...' : `添加到${mealTypes.find(m => m.key === mealType)?.label}`}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* 今日餐次概览 */}
-        <CollapsibleSection title="🍽️ 今日餐次" defaultExpanded={true}>
+        <CollapsibleSection title="📋 今日餐次" defaultExpanded={true}>
           {(['breakfast', 'lunch', 'dinner', 'snack'] as CreateRecordRequest['meal'][]).map((meal) => {
             const mealData = dailySummary?.meals?.[meal];
+            const mealInfo = mealTypes.find(m => m.key === meal);
             const hasFood = mealData && mealData.foods && mealData.foods.length > 0;
+
             if (!hasFood) {
               return (
-                <View key={meal} style={styles.mealOverviewRow}>
-                  <Text style={styles.mealOverviewLabel}>
-                    {mealTypes.find(m => m.key === meal)?.icon}{' '}
-                    {mealTypes.find(m => m.key === meal)?.label}
-                  </Text>
-                  <Text style={styles.mealOverviewEmpty}>暂无记录</Text>
+                <View key={meal} style={styles.mealOverviewEmpty}>
+                  <Text style={styles.mealOverviewEmptyIcon}>{mealInfo?.icon}</Text>
+                  <Text style={styles.mealOverviewEmptyLabel}>{mealInfo?.label}</Text>
+                  <Text style={styles.mealOverviewEmptyText}>暂无记录</Text>
                 </View>
               );
             }
+
             // 合并同名食物
             const merged: Record<string, any> = {};
             mealData.foods.forEach((f: any) => {
@@ -319,27 +385,33 @@ const RecordScreen: React.FC = () => {
               }
             });
             const mergedFoods = Object.values(merged);
+
             return (
               <View key={meal} style={styles.mealOverviewBlock}>
                 <View style={styles.mealOverviewHeader}>
-                  <Text style={styles.mealOverviewLabel}>
-                    {mealTypes.find(m => m.key === meal)?.icon}{' '}
-                    {mealTypes.find(m => m.key === meal)?.label}
-                  </Text>
-                  <Text style={styles.mealOverviewCalories}>
-                    {Math.round(mealData.totalNutrition?.calories || 0)} 千卡
-                  </Text>
-                </View>
-                {mergedFoods.map((food: any, index: number) => (
-                  <View key={index} style={styles.mealFoodRow}>
-                    <Text style={styles.mealFoodName} numberOfLines={1}>
-                      {food.nameZh || food.name}
-                    </Text>
-                    <Text style={styles.mealFoodAmount}>
-                      {food.amount ? `${food.amount}${food.unit || 'g'}` : ''}
+                  <View style={styles.mealOverviewTitleRow}>
+                    <Text style={styles.mealOverviewIcon}>{mealInfo?.icon}</Text>
+                    <Text style={styles.mealOverviewLabel}>{mealInfo?.label}</Text>
+                  </View>
+                  <View style={styles.mealOverviewCaloriesBadge}>
+                    <Text style={styles.mealOverviewCalories}>
+                      {Math.round(mealData.totalNutrition?.calories || 0)} 千卡
                     </Text>
                   </View>
-                ))}
+                </View>
+                <View style={styles.mealFoodList}>
+                  {mergedFoods.map((food: any, index: number) => (
+                    <View key={index} style={styles.mealFoodRow}>
+                      <View style={styles.mealFoodDot} />
+                      <Text style={styles.mealFoodName} numberOfLines={1}>
+                        {food.nameZh || food.name}
+                      </Text>
+                      <Text style={styles.mealFoodAmount}>
+                        {food.amount ? `${Math.round(food.amount)}${food.unit || 'g'}` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             );
           })}
@@ -352,72 +424,114 @@ const RecordScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFF5F5',
   },
   content: {
     flex: 1,
     padding: 16,
   },
+
+  // 搜索框
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: '#FFE4E1',
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchIcon: {
+    fontSize: 16,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
+    fontSize: 15,
+    color: '#333333',
+    padding: 0,
+  },
+  clearIcon: {
+    fontSize: 14,
+    color: '#CCCCCC',
+    padding: 4,
   },
   searchButton: {
-    marginLeft: 8,
-    width: 80,
+    marginLeft: 10,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 25,
+    paddingHorizontal: 20,
     height: 48,
-  },
-  // 搜索结果收纳条
-  resultsToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  resultsToggleText: {
-    fontSize: 14,
+  searchButtonDisabled: {
+    backgroundColor: '#FFB5B5',
+  },
+  searchButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '600',
-    color: '#333333',
   },
-  resultsToggleIcon: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  // 展开的搜索结果列表
-  resultsList: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    maxHeight: 200,
-  },
-  foodItem: {
+
+  // 食物卡片
+  foodCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    marginBottom: 8,
+    borderWidth: 1.5,
+    borderColor: '#F5F5F5',
   },
-  foodItemSelected: {
-    backgroundColor: '#FFF8F8',
+  foodCardSelected: {
     borderColor: '#FF6B6B',
+    backgroundColor: '#FFF8F8',
+  },
+  foodCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  foodIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  foodIconHistory: {
+    backgroundColor: '#FFF8E1',
+  },
+  foodIconText: {
+    fontSize: 18,
   },
   foodInfo: {
     flex: 1,
   },
   foodName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333333',
     marginBottom: 2,
@@ -426,130 +540,257 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999999',
   },
-  foodCalories: {
+  foodCardRight: {
     alignItems: 'flex-end',
   },
   caloriesValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FF6B6B',
   },
   caloriesUnit: {
     fontSize: 11,
     color: '#999999',
+    marginTop: 2,
   },
+
   // 餐次选择
+  mealTypeSection: {
+    marginBottom: 16,
+  },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#333333',
     marginBottom: 12,
   },
   mealTypeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
   },
   mealTypeItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginHorizontal: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#E8E8E8',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   mealTypeSelected: {
-    borderColor: '#FF6B6B',
-    backgroundColor: '#FFF0F0',
+    transform: [{ scale: 1.05 }],
   },
   mealTypeIcon: {
-    fontSize: 20,
+    fontSize: 24,
     marginBottom: 4,
   },
   mealTypeLabel: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
     color: '#666666',
   },
   mealTypeLabelSelected: {
-    color: '#FF6B6B',
-    fontWeight: '600',
+    color: '#333333',
+    fontWeight: '700',
   },
+
   // 选中食物面板
   selectedPanel: {
-    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#FFE4E1',
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   selectedHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  selectedName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333333',
-  },
-  closeButton: {
-    fontSize: 18,
-    color: '#999999',
-  },
-  selectedNutrients: {
-    marginBottom: 12,
-  },
-  nutrientText: {
-    fontSize: 12,
-    color: '#666666',
-  },
-  servingsRow: {
+  selectedTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+  },
+  selectedIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  selectedIconText: {
+    fontSize: 20,
+  },
+  selectedName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  selectedCategory: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 2,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 14,
+    color: '#999999',
+  },
+
+  // 营养素标签
+  nutrientTags: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  nutrientTag: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginHorizontal: 4,
+  },
+  nutrientTagValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  nutrientTagLabel: {
+    fontSize: 11,
+    color: '#666666',
+    marginTop: 2,
+  },
+
+  // 份数调节
+  servingsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 12,
   },
   servingsLabel: {
     fontSize: 14,
-    color: '#333333',
+    color: '#666666',
+    marginRight: 12,
+  },
+  servingsControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  servingsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  servingsButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   servingsInput: {
-    width: 60,
+    width: 50,
     height: 36,
-    marginHorizontal: 8,
     textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333333',
+    marginHorizontal: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   servingsUnit: {
     fontSize: 14,
     color: '#666666',
+    marginLeft: 12,
   },
-  totalCalories: {
-    fontSize: 18,
+
+  // 总热量
+  totalCaloriesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  totalCaloriesLabel: {
+    fontSize: 14,
+    color: '#666666',
+    marginRight: 8,
+  },
+  totalCaloriesValue: {
+    fontSize: 22,
     fontWeight: '700',
     color: '#FF6B6B',
-    textAlign: 'center',
-    marginBottom: 12,
   },
-  // 餐次概览
-  mealOverviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+
+  // 添加按钮
+  addButton: {
+    backgroundColor: '#FF6B6B',
+    borderRadius: 25,
+    height: 50,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  addButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // 今日餐次概览
+  mealOverviewEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#FFF0F0',
   },
-  mealOverviewLabel: {
+  mealOverviewEmptyIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  mealOverviewEmptyLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#333333',
+    marginRight: 8,
   },
-  mealOverviewEmpty: {
+  mealOverviewEmptyText: {
     fontSize: 12,
     color: '#CCCCCC',
   },
   mealOverviewBlock: {
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#FFF0F0',
   },
@@ -557,19 +798,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  mealOverviewTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mealOverviewIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  mealOverviewLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  mealOverviewCaloriesBadge: {
+    backgroundColor: '#FFF0F0',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   mealOverviewCalories: {
     fontSize: 13,
     fontWeight: '600',
     color: '#FF6B6B',
   },
+  mealFoodList: {
+    paddingLeft: 24,
+  },
   mealFoodRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 3,
-    paddingLeft: 16,
+    paddingVertical: 4,
+  },
+  mealFoodDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFB5B5',
+    marginRight: 8,
   },
   mealFoodName: {
     flex: 1,
