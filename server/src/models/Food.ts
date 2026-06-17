@@ -5,7 +5,7 @@ export interface IFood extends Document {
   name: string;
   nameZh: string;
   brand?: string;
-  category: 'staple' | 'meat' | 'vegetable' | 'fruit' | 'dairy' | 'snack' | 'drink' | 'other';
+  category: 'staple' | 'meat' | 'seafood' | 'vegetable' | 'tofu' | 'fruit' | 'dairy' | 'snack' | 'drink' | 'dish' | 'condiment' | 'other';
   nutrition: {
     calories: number;
     protein: number;
@@ -43,7 +43,7 @@ const FoodSchema = new Schema<IFood>(
     },
     category: {
       type: String,
-      enum: ['staple', 'meat', 'vegetable', 'fruit', 'dairy', 'snack', 'drink', 'other'],
+      enum: ['staple', 'meat', 'seafood', 'vegetable', 'tofu', 'fruit', 'dairy', 'snack', 'drink', 'dish', 'condiment', 'other'],
       required: [true, 'Category is required'],
     },
     nutrition: {
