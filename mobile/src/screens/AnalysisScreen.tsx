@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useRecordStore } from '../store/recordStore';
@@ -48,6 +49,10 @@ const AnalysisScreen: React.FC = () => {
 
   // 餐次统计
   const [mealStats, setMealStats] = useState<Record<string, number>>({});
+
+  // 选中日期详情
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDayRecords, setSelectedDayRecords] = useState<DietRecord[]>([]);
 
   // 加载数据
   useEffect(() => {
@@ -207,6 +212,38 @@ const AnalysisScreen: React.FC = () => {
     lunch: { label: '午餐', icon: '☀️', color: '#FFDAB9' },
     dinner: { label: '晚餐', icon: '🌙', color: '#E6E6FA' },
     snack: { label: '加餐', icon: '🍪', color: '#FFF0F5' },
+  };
+
+  // 点击网格查看某天详情
+  const handleDayPress = (date: string) => {
+    const dayRecords = records.filter((r) => r.date.split('T')[0] === date);
+    setSelectedDay(date);
+    setSelectedDayRecords(dayRecords);
+  };
+
+  // 合并同名食物
+  const mergeFoods = (foods: any[]) => {
+    const merged: Record<string, any> = {};
+    foods.forEach((f) => {
+      const name = f.name || '';
+      if (merged[name]) {
+        merged[name].amount += f.amount || 0;
+        merged[name].nutrition.calories += f.nutrition?.calories || 0;
+        merged[name].nutrition.protein += f.nutrition?.protein || 0;
+        merged[name].nutrition.carbs += f.nutrition?.carbs || 0;
+        merged[name].nutrition.fat += f.nutrition?.fat || 0;
+      } else {
+        merged[name] = { ...f, amount: f.amount || 0, nutrition: { ...f.nutrition } };
+      }
+    });
+    return Object.values(merged);
+  };
+
+  // 格式化选中日期
+  const formatSelectedDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${weekdays[date.getDay()]}`;
   };
 
   return (
@@ -435,7 +472,12 @@ const AnalysisScreen: React.FC = () => {
               const isToday = date === new Date().toISOString().split('T')[0];
 
               return (
-                <View key={date} style={styles.calCell}>
+                <TouchableOpacity
+                  key={date}
+                  style={styles.calCell}
+                  onPress={() => handleDayPress(date)}
+                  activeOpacity={0.7}
+                >
                   <View
                     style={[
                       styles.calDay,
@@ -455,7 +497,7 @@ const AnalysisScreen: React.FC = () => {
                       <Text style={styles.calDayEmpty}>-</Text>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -475,6 +517,85 @@ const AnalysisScreen: React.FC = () => {
             </View>
           </View>
         </View>
+
+        {/* 每日详情模态框 */}
+        <Modal visible={selectedDay !== null} transparent animationType="slide">
+          <View style={styles.dayModalOverlay}>
+            <View style={styles.dayModal}>
+              <View style={styles.dayModalHeader}>
+                <Text style={styles.dayModalTitle}>
+                  {selectedDay ? formatSelectedDate(selectedDay) : ''}
+                </Text>
+                <TouchableOpacity
+                  style={styles.dayModalClose}
+                  onPress={() => setSelectedDay(null)}
+                >
+                  <Text style={styles.dayModalCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.dayModalContent}>
+                {selectedDayRecords.length === 0 ? (
+                  <View style={styles.dayModalEmpty}>
+                    <Text style={styles.dayModalEmptyIcon}>📭</Text>
+                    <Text style={styles.dayModalEmptyText}>这天没有记录</Text>
+                  </View>
+                ) : (
+                  <>
+                    {/* 按餐次分组 */}
+                    {(['breakfast', 'lunch', 'dinner', 'snack'] as const).map((meal) => {
+                      const mealRecords = selectedDayRecords.filter((r) => r.meal === meal);
+                      if (mealRecords.length === 0) return null;
+
+                      const mealTotalCal = mealRecords.reduce(
+                        (sum, r) => sum + (r.totalNutrition?.calories || 0), 0
+                      );
+                      const allFoods = mealRecords.flatMap((r) => r.foods || []);
+                      const mergedFoods = mergeFoods(allFoods);
+                      const info = mealLabels[meal];
+
+                      return (
+                        <View key={meal} style={styles.dayMealBlock}>
+                          <View style={styles.dayMealHeader}>
+                            <View style={styles.dayMealTitleRow}>
+                              <Text style={styles.dayMealIcon}>{info.icon}</Text>
+                              <Text style={styles.dayMealLabel}>{info.label}</Text>
+                            </View>
+                            <Text style={styles.dayMealCal}>{Math.round(mealTotalCal)} 千卡</Text>
+                          </View>
+                          {mergedFoods.map((food: any, i: number) => (
+                            <View key={i} style={styles.dayFoodRow}>
+                              <View style={styles.dayFoodDot} />
+                              <Text style={styles.dayFoodName} numberOfLines={1}>
+                                {food.name}
+                              </Text>
+                              <Text style={styles.dayFoodAmount}>
+                                {Math.round(food.amount)}g
+                              </Text>
+                              <Text style={styles.dayFoodCal}>
+                                {Math.round(food.nutrition?.calories || 0)} 千卡
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })}
+
+                    {/* 总计 */}
+                    <View style={styles.dayTotalRow}>
+                      <Text style={styles.dayTotalLabel}>总计</Text>
+                      <Text style={styles.dayTotalCal}>
+                        {Math.round(selectedDayRecords.reduce(
+                          (sum, r) => sum + (r.totalNutrition?.calories || 0), 0
+                        ))} 千卡
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       ) : (
         /* 日报/周报用列表视图 */
         dailyData.dates.map((date, index) => {
@@ -981,6 +1102,141 @@ const styles = StyleSheet.create({
   calLegendText: {
     fontSize: 11,
     color: '#666666',
+  },
+
+  // 每日详情模态
+  dayModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  dayModal: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
+  },
+  dayModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  dayModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#333333',
+    flex: 1,
+  },
+  dayModalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayModalCloseText: {
+    fontSize: 14,
+    color: '#999999',
+  },
+  dayModalContent: {
+    padding: 16,
+  },
+  dayModalEmpty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  dayModalEmptyIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  dayModalEmptyText: {
+    fontSize: 15,
+    color: '#999999',
+  },
+
+  // 餐次块
+  dayMealBlock: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  dayMealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dayMealTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dayMealIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  dayMealLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  dayMealCal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+  dayFoodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingLeft: 26,
+  },
+  dayFoodDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFB5B5',
+    marginRight: 10,
+  },
+  dayFoodName: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333333',
+  },
+  dayFoodAmount: {
+    fontSize: 12,
+    color: '#999999',
+    marginRight: 12,
+  },
+  dayFoodCal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+
+  // 总计
+  dayTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFF0F0',
+    borderRadius: 12,
+  },
+  dayTotalLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  dayTotalCal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FF6B6B',
   },
 
   bottomSpacing: {
