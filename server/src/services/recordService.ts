@@ -196,7 +196,7 @@ export class RecordService {
 
     // 构建餐次数据
     const meals = mealOrder
-      .filter((meal) => mealsMap.get(meal)?.length ?? 0 > 0)
+      .filter((meal) => (mealsMap.get(meal)?.length ?? 0) > 0)
       .map((meal) => {
         const mealRecords = mealsMap.get(meal) || [];
         const mealTotal = {
