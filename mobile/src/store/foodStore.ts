@@ -33,12 +33,14 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   searchFoods: async (query: string) => {
     set({ isLoading: true, error: null, page: 1 });
     try {
-      const response = await foodService.searchFoods(query, 1, 20);
+      const result = await foodService.searchFoods(query, 1, 50);
+      const foods = result.foods || result.data?.foods || [];
+      const total = result.total || result.data?.total || 0;
       set({
-        searchResults: response.foods,
-        foods: response.foods,
+        searchResults: foods,
+        foods: foods,
         page: 1,
-        hasMore: response.foods.length < response.total,
+        hasMore: foods.length < total,
         isLoading: false,
       });
     } catch (error: any) {

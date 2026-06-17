@@ -88,7 +88,7 @@ const RecordScreen: React.FC = () => {
       onPress={() => handleSelectFood(item)}
     >
       <View style={styles.foodInfo}>
-        <Text style={styles.foodName}>{item.name}</Text>
+        <Text style={styles.foodName}>{item.nameZh}</Text>
         <Text style={styles.foodCategory}>{item.category}</Text>
       </View>
       <View style={styles.foodCalories}>

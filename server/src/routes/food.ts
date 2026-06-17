@@ -11,6 +11,7 @@ const router = Router();
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { q, page, limit } = req.query;
+    console.log('Food search - q:', q, 'type:', typeof q);
 
     const pageNum = page ? parseInt(page as string, 10) : 1;
     const limitNum = limit ? parseInt(limit as string, 10) : 20;

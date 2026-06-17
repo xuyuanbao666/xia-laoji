@@ -5,8 +5,10 @@ import { Food, SearchFoodsResponse } from '../types';
  * 搜索食物
  */
 export const searchFoods = async (query: string, page = 1, limit = 20): Promise<SearchFoodsResponse> => {
-  const response = await api.get<SearchFoodsResponse>('/foods', { params: { q: query, page, limit } });
-  return response.data;
+  const response = await api.get('/foods', { params: { q: query, page, limit } });
+  // API 返回 {success: true, data: {foods, total, page, totalPages}}
+  const data = response.data?.data || response.data;
+  return data;
 };
 
 /**
