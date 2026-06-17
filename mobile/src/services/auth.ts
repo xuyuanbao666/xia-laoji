@@ -35,8 +35,9 @@ export const getProfile = async (): Promise<User> => {
  * 更新用户资料
  */
 export const updateProfile = async (data: UpdateProfileRequest): Promise<User> => {
-  const response = await api.put<User>('/auth/profile', data);
-  return response.data;
+  const response = await api.put('/auth/profile', data);
+  const result = response.data;
+  return result?.data?.user || result?.data || result?.user || result;
 };
 
 /**
