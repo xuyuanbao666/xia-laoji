@@ -97,18 +97,18 @@ const HomeScreen: React.FC = () => {
     return Object.values(merged);
   };
 
-  // 获取问候语（使用北京时间）
+  // 获取问候语（手动计算北京时间 UTC+8）
   const getGreeting = () => {
     const now = new Date();
-    // 获取北京时间（UTC+8）
-    const beijingTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
-    const hour = beijingTime.getHours();
-    if (hour < 6) return '夜深了 🌙';
-    if (hour < 9) return '早上好 🌅';
-    if (hour < 12) return '上午好 ☀️';
-    if (hour < 14) return '中午好 🍱';
-    if (hour < 18) return '下午好 🍵';
-    if (hour < 22) return '晚上好 🌆';
+    // 手动计算北京时间：UTC小时 + 8
+    const utcHour = now.getUTCHours();
+    const beijingHour = (utcHour + 8) % 24;
+    if (beijingHour < 6) return '夜深了 🌙';
+    if (beijingHour < 9) return '早上好 🌅';
+    if (beijingHour < 12) return '上午好 ☀️';
+    if (beijingHour < 14) return '中午好 🍱';
+    if (beijingHour < 18) return '下午好 🍵';
+    if (beijingHour < 22) return '晚上好 🌆';
     return '夜深了 🌙';
   };
 
@@ -131,12 +131,16 @@ const HomeScreen: React.FC = () => {
           </Text>
         </View>
         <Text style={styles.date}>
-          {new Date().toLocaleDateString('zh-CN', {
-            timeZone: 'Asia/Shanghai',
-            month: 'long',
-            day: 'numeric',
-            weekday: 'long',
-          })}
+          {(() => {
+            const now = new Date();
+            // 手动计算北京时间
+            const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+            return beijingTime.toLocaleDateString('zh-CN', {
+              month: 'long',
+              day: 'numeric',
+              weekday: 'long',
+            });
+          })()}
         </Text>
       </View>
 
