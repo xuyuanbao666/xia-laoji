@@ -180,14 +180,24 @@ class AuthService {
       throw new Error('用户不存在');
     }
 
-    // 更新资料
+    // 只更新有值的字段（避免空值覆盖）
     if (updates.profile) {
-      Object.assign(user.profile, updates.profile);
+      Object.keys(updates.profile).forEach((key) => {
+        const value = (updates.profile as any)[key];
+        if (value !== undefined && value !== null && value !== '') {
+          (user.profile as any)[key] = value;
+        }
+      });
     }
 
-    // 更新目标
+    // 只更新有值的目标
     if (updates.goals) {
-      Object.assign(user.goals, updates.goals);
+      Object.keys(updates.goals).forEach((key) => {
+        const value = (updates.goals as any)[key];
+        if (value !== undefined && value !== null && value !== '') {
+          (user.goals as any)[key] = value;
+        }
+      });
     }
 
     // 保存更新
