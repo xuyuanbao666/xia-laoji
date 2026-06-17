@@ -30,6 +30,7 @@ const ProfileScreen: React.FC = () => {
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   // 编辑数据
   const [editData, setEditData] = useState({
@@ -304,7 +305,7 @@ const ProfileScreen: React.FC = () => {
       title: '关于虾牢记',
       subtitle: 'v1.0.0',
       icon: '🦐',
-      onPress: () => Alert.alert('关于', '🦐 虾牢记\n你的饮食记录小助手\n\n版本 1.0.0'),
+      onPress: () => setShowAboutModal(true),
     },
   ];
 
@@ -648,6 +649,100 @@ const ProfileScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+      {/* ========== 关于虾牢记模态框 ========== */}
+      <Modal visible={showAboutModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>关于虾牢记</Text>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setShowAboutModal(false)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent}>
+              {/* Logo 和版本 */}
+              <View style={styles.aboutHeader}>
+                <View style={styles.aboutLogo}>
+                  <Text style={styles.aboutLogoText}>🦐</Text>
+                </View>
+                <Text style={styles.aboutAppName}>虾牢记</Text>
+                <Text style={styles.aboutVersion}>版本 1.0.0</Text>
+                <Text style={styles.aboutSlogan}>记录每一口，健康每一天 ❤️</Text>
+              </View>
+
+              {/* 版本更新 */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>🆕 版本更新</Text>
+                <View style={styles.aboutCard}>
+                  <View style={styles.aboutUpdateHeader}>
+                    <Text style={styles.aboutUpdateVersion}>v1.0.0</Text>
+                    <Text style={styles.aboutUpdateDate}>2026年6月17日</Text>
+                  </View>
+                  <Text style={styles.aboutUpdateLabel}>✨ 新功能</Text>
+                  <Text style={styles.aboutUpdateItem}>• 饮食记录 - 记录每日三餐</Text>
+                  <Text style={styles.aboutUpdateItem}>• 食物搜索 - 支持中文搜索</Text>
+                  <Text style={styles.aboutUpdateItem}>• 营养分析 - 热量趋势图表</Text>
+                  <Text style={styles.aboutUpdateItem}>• 收藏功能 - 常用食物快速添加</Text>
+                  <Text style={styles.aboutUpdateItem}>• 数据导出 - 支持多种格式分享</Text>
+                  <Text style={styles.aboutUpdateItem}>• 日期选择 - 支持补录历史记录</Text>
+                  <Text style={styles.aboutUpdateItem}>• 温暖可爱的界面设计</Text>
+                </View>
+                <View style={styles.aboutCard}>
+                  <View style={styles.aboutUpdateHeader}>
+                    <Text style={styles.aboutUpdateVersion}>v0.9.0 (内测版)</Text>
+                    <Text style={styles.aboutUpdateDate}>2026年6月10日</Text>
+                  </View>
+                  <Text style={styles.aboutUpdateLabel}>🔧 优化</Text>
+                  <Text style={styles.aboutUpdateItem}>• 基础功能搭建</Text>
+                  <Text style={styles.aboutUpdateItem}>• 用户注册登录</Text>
+                  <Text style={styles.aboutUpdateItem}>• 食物数据库初始化</Text>
+                </View>
+              </View>
+
+              {/* 功能介绍 */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>📱 功能介绍</Text>
+                <View style={styles.aboutFeatureGrid}>
+                  {[
+                    { icon: '📝', title: '饮食记录', desc: '记录每餐食物' },
+                    { icon: '🔍', title: '食物搜索', desc: '快速查找食物' },
+                    { icon: '📊', title: '数据分析', desc: '查看营养趋势' },
+                    { icon: '⭐', title: '收藏功能', desc: '常用食物收藏' },
+                    { icon: '📤', title: '数据导出', desc: '分享饮食记录' },
+                    { icon: '📅', title: '日期选择', desc: '补录历史记录' },
+                  ].map((feature, index) => (
+                    <View key={index} style={styles.aboutFeatureItem}>
+                      <Text style={styles.aboutFeatureIcon}>{feature.icon}</Text>
+                      <Text style={styles.aboutFeatureTitle}>{feature.title}</Text>
+                      <Text style={styles.aboutFeatureDesc}>{feature.desc}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* 其他信息 */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>ℹ️ 其他信息</Text>
+                <View style={styles.aboutInfoRow}>
+                  <Text style={styles.aboutInfoLabel}>开发者</Text>
+                  <Text style={styles.aboutInfoValue}>虾牢记团队</Text>
+                </View>
+                <View style={styles.aboutInfoRow}>
+                  <Text style={styles.aboutInfoLabel}>技术支持</Text>
+                  <Text style={styles.aboutInfoValue}>support@xialaoji.com</Text>
+                </View>
+                <View style={styles.aboutInfoRow}>
+                  <Text style={styles.aboutInfoLabel}>开源协议</Text>
+                  <Text style={styles.aboutInfoValue}>MIT License</Text>
+                </View>
+                <TouchableOpacity style={styles.aboutCheckUpdate}>
+                  <Text style={styles.aboutCheckUpdateText}>检查更新</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -767,6 +862,32 @@ const styles = StyleSheet.create({
   exportCopyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, backgroundColor: '#FF6B6B', borderRadius: 12 },
   exportCopyBtnIcon: { fontSize: 18, marginRight: 8 },
   exportCopyBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+
+  // 关于
+  aboutHeader: { alignItems: 'center', paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', marginBottom: 16 },
+  aboutLogo: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  aboutLogoText: { fontSize: 40 },
+  aboutAppName: { fontSize: 22, fontWeight: '700', color: '#333333', marginBottom: 4 },
+  aboutVersion: { fontSize: 14, color: '#999999', marginBottom: 4 },
+  aboutSlogan: { fontSize: 13, color: '#FF6B6B' },
+  aboutSection: { marginBottom: 20 },
+  aboutSectionTitle: { fontSize: 16, fontWeight: '700', color: '#333333', marginBottom: 12 },
+  aboutCard: { backgroundColor: '#F8F8F8', borderRadius: 12, padding: 14, marginBottom: 10 },
+  aboutUpdateHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  aboutUpdateVersion: { fontSize: 15, fontWeight: '700', color: '#FF6B6B' },
+  aboutUpdateDate: { fontSize: 12, color: '#999999' },
+  aboutUpdateLabel: { fontSize: 13, fontWeight: '600', color: '#333333', marginBottom: 6 },
+  aboutUpdateItem: { fontSize: 13, color: '#666666', lineHeight: 20, marginBottom: 2 },
+  aboutFeatureGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  aboutFeatureItem: { width: '30%', alignItems: 'center', marginBottom: 16 },
+  aboutFeatureIcon: { fontSize: 28, marginBottom: 6 },
+  aboutFeatureTitle: { fontSize: 12, fontWeight: '600', color: '#333333', marginBottom: 2 },
+  aboutFeatureDesc: { fontSize: 10, color: '#999999' },
+  aboutInfoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  aboutInfoLabel: { fontSize: 14, color: '#666666' },
+  aboutInfoValue: { fontSize: 14, color: '#333333' },
+  aboutCheckUpdate: { marginTop: 16, paddingVertical: 12, alignItems: 'center', backgroundColor: '#FF6B6B', borderRadius: 12 },
+  aboutCheckUpdateText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 });
 
 export default ProfileScreen;
