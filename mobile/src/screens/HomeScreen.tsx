@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,9 +21,18 @@ const HomeScreen: React.FC = () => {
   const { user } = useAuthStore();
   const { dailySummary, loadDailySummary, selectedDate, isLoading } = useRecordStore();
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // 每分钟更新一次时间，自动切换问候语
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // 60秒更新一次
+    return () => clearInterval(timer);
+  }, []);
 
   // 今天的日期
-  const today = new Date().toISOString().split('T')[0];
+  const today = currentTime.toISOString().split('T')[0];
 
   useFocusEffect(
     useCallback(() => {
@@ -99,9 +108,8 @@ const HomeScreen: React.FC = () => {
 
   // 获取问候语（手动计算北京时间 UTC+8）
   const getGreeting = () => {
-    const now = new Date();
     // 手动计算北京时间：UTC小时 + 8
-    const utcHour = now.getUTCHours();
+    const utcHour = currentTime.getUTCHours();
     const beijingHour = (utcHour + 8) % 24;
     if (beijingHour < 6) return '夜深了 🌙';
     if (beijingHour < 9) return '早上好 🌅';
@@ -132,9 +140,8 @@ const HomeScreen: React.FC = () => {
         </View>
         <Text style={styles.date}>
           {(() => {
-            const now = new Date();
             // 手动计算北京时间
-            const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+            const beijingTime = new Date(currentTime.getTime() + (8 * 60 * 60 * 1000) + (currentTime.getTimezoneOffset() * 60 * 1000));
             return beijingTime.toLocaleDateString('zh-CN', {
               month: 'long',
               day: 'numeric',
