@@ -73,26 +73,17 @@ router.post('/verify-code', async (req: Request, res: Response) => {
 
 /**
  * POST /register - 用户注册
- * Body: { email, password, profile: { name, gender, birthday, height, currentWeight, targetWeight, activityLevel }, goals? }
+ * Body: { email, password, profile?: { name, ... }, goals? }
  */
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, password, profile, goals } = req.body;
+    const { email, password, profile: rawProfile, goals } = req.body;
 
     // 验证必填字段
     if (!email || !password) {
       res.status(400).json({
         error: {
           message: '请提供邮箱和密码',
-        },
-      });
-      return;
-    }
-
-    if (!profile) {
-      res.status(400).json({
-        error: {
-          message: '请提供用户资料',
         },
       });
       return;
@@ -108,27 +99,18 @@ router.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    // 验证 profile 必填字段
-    const requiredProfileFields = [
-      'name',
-      'gender',
-      'birthday',
-      'height',
-      'currentWeight',
-      'targetWeight',
-      'activityLevel',
-    ];
+    // 使用默认 profile，如果提供了则合并
+    const defaultProfile = {
+      name: email.split('@')[0],
+      gender: 'male',
+      birthday: '2000-01-01',
+      height: 170,
+      currentWeight: 65,
+      targetWeight: 60,
+      activityLevel: 'light',
+    };
 
-    for (const field of requiredProfileFields) {
-      if (!profile[field]) {
-        res.status(400).json({
-          error: {
-            message: `请提供用户资料中的 ${field} 字段`,
-          },
-        });
-        return;
-      }
-    }
+    const profile = { ...defaultProfile, ...(rawProfile || {}) };
 
     // 调用注册服务
     const result = await authService.register(email, password, profile, goals);
