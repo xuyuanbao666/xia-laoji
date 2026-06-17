@@ -110,8 +110,16 @@ const RegisterScreen: React.FC = () => {
 
   // 表单验证
   const validateForm = (): boolean => {
+    if (!formData.name.trim()) {
+      Alert.alert('提示', '请输入昵称');
+      return false;
+    }
     if (!formData.email.trim()) {
       Alert.alert('提示', '请输入邮箱');
+      return false;
+    }
+    if (!codeVerified) {
+      Alert.alert('提示', '请先验证邮箱');
       return false;
     }
     if (formData.password.length < 6) {
@@ -132,7 +140,15 @@ const RegisterScreen: React.FC = () => {
       await register({
         email: formData.email.trim(),
         password: formData.password,
-        profile: formData.name.trim() ? { name: formData.name.trim() } : undefined,
+        profile: {
+          name: formData.name.trim(),
+          gender: 'male',
+          birthday: '2000-01-01',
+          height: 170,
+          currentWeight: 65,
+          targetWeight: 60,
+          activityLevel: 'light',
+        },
       });
     } catch (err) {}
   };
@@ -176,9 +192,9 @@ const RegisterScreen: React.FC = () => {
             </View>
           )}
 
-          {/* 昵称 (可选) */}
+          {/* 昵称 */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>😊 昵称 <Text style={{fontSize: 12, color: '#999'}}>(可选)</Text></Text>
+            <Text style={styles.inputLabel}>😊 昵称</Text>
             <TextInput
               style={styles.input}
               placeholder="请输入昵称"
@@ -202,9 +218,9 @@ const RegisterScreen: React.FC = () => {
             />
           </View>
 
-          {/* 验证码 (可选) */}
+          {/* 验证码 */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>🔢 验证码 <Text style={{fontSize: 12, color: '#999'}}>(可选)</Text></Text>
+            <Text style={styles.inputLabel}>🔢 验证码</Text>
             <View style={styles.codeRow}>
               <TextInput
                 style={[styles.input, styles.codeInput]}
@@ -270,9 +286,9 @@ const RegisterScreen: React.FC = () => {
 
           {/* 注册按钮 */}
           <TouchableOpacity
-            style={styles.registerButton}
+            style={[styles.registerButton, !codeVerified && styles.registerButtonDisabled]}
             onPress={handleRegister}
-            disabled={isLoading}
+            disabled={isLoading || !codeVerified}
             activeOpacity={0.8}
           >
             <Text style={styles.registerButtonText}>
