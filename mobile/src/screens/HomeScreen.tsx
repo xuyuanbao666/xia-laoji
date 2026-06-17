@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,7 +20,7 @@ import { CalorieProgress } from '../components/nutrition';
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  const { dailySummary, loadDailySummary, selectedDate, isLoading } = useRecordStore();
+  const { dailySummary, loadDailySummary, selectedDate, setSelectedDate, isLoading } = useRecordStore();
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -31,18 +32,22 @@ const HomeScreen: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // 今天的日期
+  // 日期选择器
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+
   const today = currentTime.toISOString().split('T')[0];
 
   useFocusEffect(
     useCallback(() => {
-      loadDailySummary(today);
-    }, [today, loadDailySummary])
+      loadDailySummary(selectedDate);
+    }, [selectedDate, loadDailySummary])
   );
 
   const onRefresh = useCallback(() => {
-    loadDailySummary(today);
-  }, [today, loadDailySummary]);
+    loadDailySummary(selectedDate);
+  }, [selectedDate, loadDailySummary]);
 
   // 获取目标热量
   const calorieGoal = user?.goals?.dailyCalories || 2000;
@@ -79,6 +84,42 @@ const HomeScreen: React.FC = () => {
   const toggleMeal = (mealKey: string) => {
     setExpandedMeal(expandedMeal === mealKey ? null : mealKey);
   };
+
+  // 日历辅助函数
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const generateCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(calendarYear, calendarMonth);
+    const firstDay = getFirstDayOfMonth(calendarYear, calendarMonth);
+    const days: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    return days;
+  };
+
+  const handleDateSelect = (day: number) => {
+    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    setSelectedDate(dateStr);
+    setShowDatePicker(false);
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    const target = new Date(dateStr + 'T00:00:00');
+    const diffDays = Math.round((target.getTime() - new Date(today + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const weekday = weekdays[date.getDay()];
+    const monthDay = `${date.getMonth() + 1}月${date.getDate()}日`;
+    if (diffDays === 0) return `今天 · ${monthDay} ${weekday}`;
+    if (diffDays === -1) return `昨天 · ${monthDay} ${weekday}`;
+    if (diffDays === 1) return `明天 · ${monthDay} ${weekday}`;
+    return `${monthDay} ${weekday}`;
+  };
+
+  const isToday = selectedDate === today;
+  const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
 
   // 获取餐次的食物列表（合并同名食物）
   const getMealFoods = (mealKey: string) => {
@@ -128,6 +169,118 @@ const HomeScreen: React.FC = () => {
         <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
       }
     >
+      {/* 日期选择器 */}
+      <TouchableOpacity
+        style={styles.datePickerContainer}
+        onPress={() => setShowDatePicker(true)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.datePickerIcon}>📅</Text>
+        <View style={styles.dateDisplay}>
+          <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+        </View>
+        <View style={styles.datePickerRight}>
+          {!isToday && (
+            <TouchableOpacity
+              onPress={() => setSelectedDate(today)}
+              style={styles.dateBackBtn}
+            >
+              <Text style={styles.dateBackToToday}>回到今天</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.datePickerArrow}>▶</Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* 自定义日历模态 */}
+      <Modal visible={showDatePicker} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDatePicker(false)}
+        >
+          <View style={styles.calendarModal}>
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.calendarHeader}>
+                <TouchableOpacity
+                  style={styles.calendarNavBtn}
+                  onPress={() => {
+                    if (calendarMonth === 0) {
+                      setCalendarMonth(11);
+                      setCalendarYear(calendarYear - 1);
+                    } else {
+                      setCalendarMonth(calendarMonth - 1);
+                    }
+                  }}
+                >
+                  <Text style={styles.calendarNavText}>◀</Text>
+                </TouchableOpacity>
+                <Text style={styles.calendarTitle}>
+                  {calendarYear}年 {monthNames[calendarMonth]}
+                </Text>
+                <TouchableOpacity
+                  style={styles.calendarNavBtn}
+                  onPress={() => {
+                    if (calendarMonth === 11) {
+                      setCalendarMonth(0);
+                      setCalendarYear(calendarYear + 1);
+                    } else {
+                      setCalendarMonth(calendarMonth + 1);
+                    }
+                  }}
+                >
+                  <Text style={styles.calendarNavText}>▶</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.calendarWeekRow}>
+                {weekDays.map((day) => (
+                  <Text key={day} style={styles.calendarWeekText}>{day}</Text>
+                ))}
+              </View>
+              <View style={styles.calendarGrid}>
+                {generateCalendarDays().map((day, index) => {
+                  if (day === null) return <View key={`empty-${index}`} style={styles.calendarDay} />;
+                  const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const isSelected = dateStr === selectedDate;
+                  const isTodayDate = dateStr === today;
+                  const isFuture = new Date(dateStr + 'T00:00:00') > new Date();
+                  return (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.calendarDay,
+                        isSelected && styles.calendarDaySelected,
+                        isTodayDate && !isSelected && styles.calendarDayToday,
+                      ]}
+                      onPress={() => !isFuture && handleDateSelect(day)}
+                      disabled={isFuture}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          isSelected && styles.calendarDayTextSelected,
+                          isTodayDate && !isSelected && styles.calendarDayTextToday,
+                          isFuture && styles.calendarDayTextDisabled,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <TouchableOpacity
+                style={styles.calendarCloseBtn}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.calendarCloseBtnText}>关闭</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* 顶部问候 */}
       <View style={styles.header}>
         <View style={styles.greetingContainer}>
@@ -548,6 +701,151 @@ const styles = StyleSheet.create({
 
   bottomSpacing: {
     height: 20,
+  },
+
+  // 日期选择器
+  datePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  datePickerIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  dateDisplay: {
+    flex: 1,
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  datePickerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateBackBtn: {
+    backgroundColor: '#FFF0F0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  dateBackToToday: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    fontWeight: '600',
+  },
+  datePickerArrow: {
+    fontSize: 12,
+    color: '#CCCCCC',
+  },
+
+  // 日历模态
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: 320,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarNavText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  calendarWeekRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  calendarWeekText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#999999',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDay: {
+    width: '14.28%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarDaySelected: {
+    backgroundColor: '#FF6B6B',
+    borderRadius: 20,
+  },
+  calendarDayToday: {
+    backgroundColor: '#FFF0F0',
+    borderRadius: 20,
+  },
+  calendarDayText: {
+    fontSize: 15,
+    color: '#333333',
+  },
+  calendarDayTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  calendarDayTextToday: {
+    color: '#FF6B6B',
+    fontWeight: '700',
+  },
+  calendarDayTextDisabled: {
+    color: '#DDDDDD',
+  },
+  calendarCloseBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+  },
+  calendarCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
   },
 });
 
