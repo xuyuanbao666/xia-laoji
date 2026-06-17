@@ -35,8 +35,9 @@ export const getRecords = async (params: {
   startDate?: string;
   endDate?: string;
 }): Promise<PaginatedResponse<DietRecord>> => {
-  const response = await api.get<PaginatedResponse<DietRecord>>('/records', { params });
-  return response.data;
+  const response = await api.get('/records', { params });
+  const result = response.data?.data || response.data;
+  return result;
 };
 
 /**

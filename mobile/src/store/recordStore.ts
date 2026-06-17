@@ -68,12 +68,14 @@ export const useRecordStore = create<RecordState>((set, get) => ({
         startDate,
         endDate,
         page: 1,
-        limit: 20,
+        limit: 100,
       });
+      // 后端返回数组或 {items: [...]} 格式
+      const items = Array.isArray(response) ? response : (response.items || []);
       set({
-        records: response.items,
+        records: items,
         page: 1,
-        hasMore: response.items.length < response.total,
+        hasMore: false,
         isLoading: false,
       });
     } catch (error: any) {
