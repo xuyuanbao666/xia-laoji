@@ -97,9 +97,12 @@ const HomeScreen: React.FC = () => {
     return Object.values(merged);
   };
 
-  // 获取问候语
+  // 获取问候语（使用北京时间）
   const getGreeting = () => {
-    const hour = new Date().getHours();
+    const now = new Date();
+    // 获取北京时间（UTC+8）
+    const beijingTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
+    const hour = beijingTime.getHours();
     if (hour < 6) return '夜深了 🌙';
     if (hour < 9) return '早上好 🌅';
     if (hour < 12) return '上午好 ☀️';
@@ -129,6 +132,7 @@ const HomeScreen: React.FC = () => {
         </View>
         <Text style={styles.date}>
           {new Date().toLocaleDateString('zh-CN', {
+            timeZone: 'Asia/Shanghai',
             month: 'long',
             day: 'numeric',
             weekday: 'long',
