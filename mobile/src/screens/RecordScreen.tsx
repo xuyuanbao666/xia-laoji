@@ -61,16 +61,24 @@ const RecordScreen: React.FC = () => {
     if (!selectedFood) return;
 
     const servingsNum = parseFloat(servings) || 1;
-    const data: CreateRecordRequest = {
+    const amount = servingsNum * selectedFood.servingSize;
+    const data = {
       foodId: selectedFood._id,
+      foodName: selectedFood.nameZh,
       meal: mealType,
-      amount: servingsNum,
+      amount: amount,
       date: selectedDate,
+      nutrition: {
+        calories: Math.round(selectedFood.nutrition.calories * amount / 100),
+        protein: Math.round(selectedFood.nutrition.protein * amount / 100 * 10) / 10,
+        carbs: Math.round(selectedFood.nutrition.carbs * amount / 100 * 10) / 10,
+        fat: Math.round(selectedFood.nutrition.fat * amount / 100 * 10) / 10,
+      },
     };
 
     try {
       await createRecord(data);
-      Alert.alert('成功', `已添加 ${selectedFood.name} 到${mealTypes.find(m => m.key === mealType)?.label}`);
+      Alert.alert('成功', `已添加 ${selectedFood.nameZh} 到${mealTypes.find(m => m.key === mealType)?.label}`);
       setSelectedFood(null);
       setServings('1');
     } catch (error) {

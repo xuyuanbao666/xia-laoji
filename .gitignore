@@ -67,3 +67,4 @@ XiaLaojiNew/
 .cache/
 *.lock
 !package-lock.json
+mobile/android/local.properties

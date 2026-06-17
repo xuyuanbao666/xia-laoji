@@ -10,9 +10,20 @@ import {
 /**
  * 创建饮食记录
  */
-export const createRecord = async (data: CreateRecordRequest): Promise<DietRecord> => {
-  const response = await api.post<DietRecord>('/records', data);
-  return response.data;
+export const createRecord = async (data: any): Promise<DietRecord> => {
+  // 转换为后端期望的格式
+  const payload = {
+    date: data.date || new Date().toISOString().split('T')[0],
+    meal: data.meal,
+    foods: [{
+      foodId: data.foodId,
+      name: data.foodName || '',
+      amount: data.amount || 100,
+      nutrition: data.nutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    }],
+  };
+  const response = await api.post('/records', payload);
+  return response.data?.data || response.data;
 };
 
 /**
@@ -31,9 +42,21 @@ export const getRecords = async (params: {
 /**
  * 获取每日摘要
  */
-export const getDailySummary = async (date: string): Promise<DailySummary> => {
-  const response = await api.get<DailySummary>(`/records/daily/${date}`);
-  return response.data;
+export const getDailySummary = async (date: string): Promise<any> => {
+  const response = await api.get(`/records/daily/${date}`);
+  const result = response.data?.data || response.data;
+  // 转换 meals 格式为前端期望的格式
+  if (result && result.meals) {
+    const mealsMap: any = {};
+    result.meals.forEach((meal: any) => {
+      mealsMap[meal.meal] = {
+        foods: meal.records?.flatMap((r: any) => r.foods) || [],
+        totalCalories: meal.totalNutrition?.calories || 0,
+      };
+    });
+    result.meals = mealsMap;
+  }
+  return result;
 };
 
 /**

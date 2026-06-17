@@ -107,7 +107,16 @@ export const useRecordStore = create<RecordState>((set, get) => ({
   loadDailySummary: async (date: string) => {
     set({ isLoading: true, error: null });
     try {
-      const summary = await recordService.getDailySummary(date);
+      const result = await recordService.getDailySummary(date);
+      const data = result.data || result;
+      // 转换后端格式为前端格式
+      const summary = {
+        totalCalories: data.totalNutrition?.calories || data.totalCalories || 0,
+        totalProtein: data.totalNutrition?.protein || data.totalProtein || 0,
+        totalCarbs: data.totalNutrition?.carbs || data.totalCarbs || 0,
+        totalFat: data.totalNutrition?.fat || data.totalFat || 0,
+        meals: data.meals || {},
+      };
       set({
         dailySummary: summary,
         isLoading: false,
