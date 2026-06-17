@@ -520,9 +520,6 @@ const AnalysisScreen: React.FC = () => {
       ) : (
         /* 日报/周报用列表视图 */
         dailyData.dates.map((date, index) => {
-      ) : (
-        /* 日报/周报用列表视图 */
-        dailyData.dates.map((date, index) => {
           const cal = calories[index];
           const hasData = cal > 0;
           const percentage = hasData ? Math.min((cal / calorieGoal) * 100, 100) : 0;
