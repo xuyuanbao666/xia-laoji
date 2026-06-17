@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 
 const connectDB = async (): Promise<void> => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/xia-laoji';
+    // Railway provides MONGO_URL, fallback to MONGODB_URI, then local
+    const mongoURI = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://localhost:27017/xia-laoji';
 
     const conn = await mongoose.connect(mongoURI);
 

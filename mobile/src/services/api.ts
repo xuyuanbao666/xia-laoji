@@ -2,7 +2,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse } from '../types';
 
-const API_BASE_URL = 'http://10.0.2.2:3000/api';
+const API_BASE_URL = 'https://xia-laoji-api-production.up.railway.app/api';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
