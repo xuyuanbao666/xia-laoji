@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
+import api from '../services/api';
 
 /**
- * 注册页 - 温暖可爱风格
+ * 注册页 - 带邮箱验证码
  */
 const RegisterScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -22,38 +23,117 @@ const RegisterScreen: React.FC = () => {
 
   const [formData, setFormData] = useState({
     email: '',
+    name: '',
     password: '',
     confirmPassword: '',
-    name: '',
+    verifyCode: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [sendingCode, setSendingCode] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 倒计时
+  useEffect(() => {
+    if (countdown > 0) {
+      timerRef.current = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [countdown]);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     clearError();
+    if (field === 'verifyCode') {
+      setCodeVerified(false); // 重新输入验证码时重置验证状态
+    }
   };
 
+  // 发送验证码
+  const handleSendCode = async () => {
+    if (!formData.email.trim()) {
+      Alert.alert('提示', '请先输入邮箱');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      Alert.alert('提示', '请输入正确的邮箱格式');
+      return;
+    }
+
+    setSendingCode(true);
+    try {
+      const response = await api.post('/auth/send-code', { email: formData.email.trim() });
+      if (response.data?.success) {
+        setCodeSent(true);
+        setCountdown(60);
+        Alert.alert('已发送', '验证码已发送到您的邮箱，请查收');
+      } else {
+        Alert.alert('错误', response.data?.message || '发送失败');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || '发送失败，请重试';
+      Alert.alert('错误', msg);
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  // 验证验证码
+  const handleVerifyCode = async () => {
+    if (!formData.verifyCode.trim()) {
+      Alert.alert('提示', '请输入验证码');
+      return;
+    }
+
+    try {
+      const response = await api.post('/auth/verify-code', {
+        email: formData.email.trim(),
+        code: formData.verifyCode.trim(),
+      });
+      if (response.data?.success) {
+        setCodeVerified(true);
+        Alert.alert('验证成功', '邮箱已验证，可以继续注册');
+      } else {
+        Alert.alert('错误', response.data?.message || '验证失败');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || '验证失败';
+      Alert.alert('错误', msg);
+    }
+  };
+
+  // 表单验证
   const validateForm = (): boolean => {
-    if (!formData.email.trim() || !formData.password.trim() || !formData.name.trim()) {
-      Alert.alert('提示', '请填写必要信息');
+    if (!formData.name.trim()) {
+      Alert.alert('提示', '请输入昵称');
       return false;
     }
-    if (formData.password !== formData.confirmPassword) {
-      Alert.alert('提示', '两次输入的密码不一致');
+    if (!formData.email.trim()) {
+      Alert.alert('提示', '请输入邮箱');
+      return false;
+    }
+    if (!codeVerified) {
+      Alert.alert('提示', '请先验证邮箱');
       return false;
     }
     if (formData.password.length < 6) {
       Alert.alert('提示', '密码长度至少6位');
       return false;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      Alert.alert('提示', '请输入正确的邮箱格式');
+    if (formData.password !== formData.confirmPassword) {
+      Alert.alert('提示', '两次输入的密码不一致');
       return false;
     }
     return true;
   };
 
+  // 处理注册
   const handleRegister = async () => {
     if (!validateForm()) return;
     try {
@@ -138,6 +218,41 @@ const RegisterScreen: React.FC = () => {
             />
           </View>
 
+          {/* 验证码 */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>🔢 验证码</Text>
+            <View style={styles.codeRow}>
+              <TextInput
+                style={[styles.input, styles.codeInput]}
+                placeholder="请输入6位验证码"
+                placeholderTextColor="#CCCCCC"
+                value={formData.verifyCode}
+                onChangeText={(t) => updateField('verifyCode', t)}
+                keyboardType="numeric"
+                maxLength={6}
+                editable={!codeVerified}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.sendCodeBtn,
+                  codeVerified && styles.sendCodeBtnVerified,
+                  countdown > 0 && styles.sendCodeBtnDisabled,
+                ]}
+                onPress={codeVerified ? undefined : (codeSent && countdown > 0 ? undefined : handleSendCode)}
+                disabled={codeVerified || sendingCode || (countdown > 0)}
+              >
+                <Text style={styles.sendCodeBtnText}>
+                  {codeVerified ? '✓ 已验证' : sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : codeSent ? '重新发送' : '发送验证码'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {!codeVerified && codeSent && (
+              <TouchableOpacity style={styles.verifyBtn} onPress={handleVerifyCode}>
+                <Text style={styles.verifyBtnText}>验证</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* 密码 */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>🔒 密码</Text>
@@ -171,9 +286,9 @@ const RegisterScreen: React.FC = () => {
 
           {/* 注册按钮 */}
           <TouchableOpacity
-            style={styles.registerButton}
+            style={[styles.registerButton, !codeVerified && styles.registerButtonDisabled]}
             onPress={handleRegister}
-            disabled={isLoading}
+            disabled={isLoading || !codeVerified}
             activeOpacity={0.8}
           >
             <Text style={styles.registerButtonText}>
@@ -226,10 +341,25 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 16 },
   inputLabel: { fontSize: 14, fontWeight: '600', color: '#333333', marginBottom: 8 },
   input: { backgroundColor: '#F8F8F8', borderRadius: 12, padding: 14, fontSize: 15, color: '#333333', borderWidth: 1.5, borderColor: '#F0F0F0' },
+
+  // 验证码
+  codeRow: { flexDirection: 'row', alignItems: 'center' },
+  codeInput: { flex: 1, marginRight: 10 },
+  sendCodeBtn: { backgroundColor: '#FF6B6B', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 },
+  sendCodeBtnVerified: { backgroundColor: '#4CAF50' },
+  sendCodeBtnDisabled: { backgroundColor: '#CCCCCC' },
+  sendCodeBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  verifyBtn: { backgroundColor: '#4ECDC4', borderRadius: 12, paddingVertical: 10, alignItems: 'center', marginTop: 8 },
+  verifyBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+
+  // 密码
   passwordWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8', borderRadius: 12, borderWidth: 1.5, borderColor: '#F0F0F0' },
   passwordInput: { flex: 1, padding: 14, fontSize: 15, color: '#333333' },
   eyeIcon: { fontSize: 18, padding: 14 },
+
+  // 注册按钮
   registerButton: { backgroundColor: '#FF6B6B', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8, shadowColor: '#FF6B6B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  registerButtonDisabled: { backgroundColor: '#CCCCCC', shadowOpacity: 0.1 },
   registerButtonText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
 
   // 登录链接

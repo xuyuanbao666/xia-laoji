@@ -1,8 +1,75 @@
 import { Router, Request, Response } from 'express';
 import authService from '../services/authService';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { sendVerificationCode } from '../services/emailService';
+import { generateCode, storeCode, verifyCode, canSendCode } from '../services/verificationService';
 
 const router = Router();
+
+/**
+ * POST /send-code - 发送验证码
+ * Body: { email }
+ */
+router.post('/send-code', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ success: false, message: '请输入有效的邮箱地址' });
+      return;
+    }
+
+    // 检查是否发送太频繁
+    if (!canSendCode(email)) {
+      res.status(429).json({ success: false, message: '发送太频繁，请60秒后再试' });
+      return;
+    }
+
+    // 生成验证码
+    const code = generateCode();
+
+    // 存储验证码
+    storeCode(email, code);
+
+    // 发送邮件
+    const sent = await sendVerificationCode(email, code);
+
+    if (sent) {
+      res.json({ success: true, message: '验证码已发送，请查收邮箱' });
+    } else {
+      res.status(500).json({ success: false, message: '发送失败，请稍后重试' });
+    }
+  } catch (error) {
+    console.error('Send code error:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+/**
+ * POST /verify-code - 验证验证码
+ * Body: { email, code }
+ */
+router.post('/verify-code', async (req: Request, res: Response) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      res.status(400).json({ success: false, message: '请输入邮箱和验证码' });
+      return;
+    }
+
+    const isValid = verifyCode(email, code);
+
+    if (isValid) {
+      res.json({ success: true, message: '验证码正确' });
+    } else {
+      res.status(400).json({ success: false, message: '验证码错误或已过期' });
+    }
+  } catch (error) {
+    console.error('Verify code error:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
 
 /**
  * POST /register - 用户注册
