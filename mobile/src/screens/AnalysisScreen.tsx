@@ -23,8 +23,8 @@ const AnalysisScreen: React.FC = () => {
   const { user } = useAuthStore();
   const { records, isLoading, loadRecords } = useRecordStore();
 
-  // 报告类型：周报/月报
-  const [reportType, setReportType] = useState<'week' | 'month'>('week');
+  // 报告类型：日报/周报/月报
+  const [reportType, setReportType] = useState<'day' | 'week' | 'month'>('week');
 
   // 目标热量
   const calorieGoal = user?.goals?.dailyCalories || 2000;
@@ -63,7 +63,9 @@ const AnalysisScreen: React.FC = () => {
     const today = new Date();
     let startDate: string;
 
-    if (reportType === 'week') {
+    if (reportType === 'day') {
+      startDate = today.toISOString().split('T')[0];
+    } else if (reportType === 'week') {
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 6);
       startDate = weekAgo.toISOString().split('T')[0];
@@ -79,7 +81,7 @@ const AnalysisScreen: React.FC = () => {
   // 聚合 records 按日期分组
   const aggregateData = useCallback(() => {
     const today = new Date();
-    const dayCount = reportType === 'week' ? 7 : 30;
+    const dayCount = reportType === 'day' ? 1 : reportType === 'week' ? 7 : 30;
     const dates: string[] = [];
     const labels: string[] = [];
     const caloriesMap: Record<string, number> = {};
@@ -94,7 +96,10 @@ const AnalysisScreen: React.FC = () => {
       const dateStr = date.toISOString().split('T')[0];
       dates.push(dateStr);
 
-      if (reportType === 'week') {
+      if (reportType === 'day') {
+        const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        labels.push(weekdays[date.getDay()]);
+      } else if (reportType === 'week') {
         const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
         labels.push(weekdays[date.getDay()]);
       } else {
@@ -214,6 +219,15 @@ const AnalysisScreen: React.FC = () => {
     >
       {/* 报告类型切换 */}
       <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tab, reportType === 'day' && styles.tabActive]}
+          onPress={() => setReportType('day')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, reportType === 'day' && styles.tabTextActive]}>
+            📅 日报
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, reportType === 'week' && styles.tabActive]}
           onPress={() => setReportType('week')}
@@ -409,9 +423,11 @@ const AnalysisScreen: React.FC = () => {
         // 格式化日期显示
         const dateObj = new Date(date + 'T00:00:00');
         const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-        const dateDisplay = reportType === 'week'
-          ? weekdays[dateObj.getDay()]
-          : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+        const dateDisplay = reportType === 'day'
+          ? `${dateObj.getMonth() + 1}月${dateObj.getDate()}日 ${weekdays[dateObj.getDay()]}`
+          : reportType === 'week'
+            ? weekdays[dateObj.getDay()]
+            : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
 
         // 判断是否是最高/最低日
         const isHighest = highestDay && highestDay.index === index;
