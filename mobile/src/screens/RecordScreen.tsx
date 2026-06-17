@@ -24,7 +24,7 @@ const RecordScreen: React.FC = () => {
   const route = useRoute<any>();
   const navigation = useNavigation();
   const { searchResults, isLoading, searchFoods } = useFoodStore();
-  const { createRecord, selectedDate, dailySummary, loadDailySummary } = useRecordStore();
+  const { createRecord, selectedDate, setSelectedDate, dailySummary, loadDailySummary } = useRecordStore();
 
   // 搜索关键词
   const [keyword, setKeyword] = useState('');
@@ -42,6 +42,35 @@ const RecordScreen: React.FC = () => {
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   // 份数
   const [servings, setServings] = useState('1');
+
+  // 日期导航
+  const changeDate = (offset: number) => {
+    const current = new Date(selectedDate + 'T00:00:00');
+    current.setDate(current.getDate() + offset);
+    const newDate = current.toISOString().split('T')[0];
+    setSelectedDate(newDate);
+  };
+
+  // 格式化日期显示
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateStr + 'T00:00:00');
+    const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const weekday = weekdays[date.getDay()];
+    const monthDay = `${date.getMonth() + 1}月${date.getDate()}日`;
+
+    if (diffDays === 0) return `今天 · ${monthDay} ${weekday}`;
+    if (diffDays === -1) return `昨天 · ${monthDay} ${weekday}`;
+    if (diffDays === 1) return `明天 · ${monthDay} ${weekday}`;
+    return `${monthDay} ${weekday}`;
+  };
+
+  // 判断是否是今天
+  const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
   // 当页面获得焦点时，检查是否有新的餐次参数
   useFocusEffect(
@@ -138,6 +167,33 @@ const RecordScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+        {/* 日期选择器 */}
+        <View style={styles.datePickerContainer}>
+          <TouchableOpacity
+            style={styles.dateArrow}
+            onPress={() => changeDate(-1)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.dateArrowText}>◀</Text>
+          </TouchableOpacity>
+          <View style={styles.dateDisplay}>
+            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+            {!isToday && (
+              <TouchableOpacity onPress={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
+                <Text style={styles.dateBackToToday}>回到今天</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.dateArrow, isToday && styles.dateArrowDisabled]}
+            onPress={() => !isToday && changeDate(1)}
+            disabled={isToday}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.dateArrowText, isToday && styles.dateArrowTextDisabled]}>▶</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* 搜索框 */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputWrapper}>
@@ -429,6 +485,54 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+  },
+
+  // 日期选择器
+  datePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  dateArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateArrowDisabled: {
+    backgroundColor: '#F5F5F5',
+  },
+  dateArrowText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+  },
+  dateArrowTextDisabled: {
+    color: '#CCCCCC',
+  },
+  dateDisplay: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  dateBackToToday: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginTop: 4,
   },
 
   // 搜索框
