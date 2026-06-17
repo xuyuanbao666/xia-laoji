@@ -298,7 +298,7 @@ const ProfileScreen: React.FC = () => {
       title: '数据导出',
       subtitle: `已记录 ${records.length} 条`,
       icon: '📤',
-      onPress: handleExport,
+      onPress: () => setShowExportModal(true),
     },
     {
       title: '关于虾牢记',
