@@ -173,35 +173,37 @@ class AuthService {
     userId: string,
     updates: UpdateProfileRequest
   ): Promise<UserWithoutPassword> {
-    // 查找用户
-    const user = await User.findById(userId);
+    // 构建更新对象，只包含有值的字段
+    const updateOps: any = {};
 
-    if (!user) {
-      throw new Error('用户不存在');
-    }
-
-    // 只更新有值的字段（避免空值覆盖）
     if (updates.profile) {
       Object.keys(updates.profile).forEach((key) => {
         const value = (updates.profile as any)[key];
         if (value !== undefined && value !== null && value !== '') {
-          (user.profile as any)[key] = value;
+          updateOps[`profile.${key}`] = value;
         }
       });
     }
 
-    // 只更新有值的目标
     if (updates.goals) {
       Object.keys(updates.goals).forEach((key) => {
         const value = (updates.goals as any)[key];
         if (value !== undefined && value !== null && value !== '') {
-          (user.goals as any)[key] = value;
+          updateOps[`goals.${key}`] = value;
         }
       });
     }
 
-    // 保存更新
-    await user.save();
+    // 使用 findOneAndUpdate 跳过必填验证（只更新指定字段）
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateOps },
+      { new: true, runValidators: false }
+    );
+
+    if (!user) {
+      throw new Error('用户不存在');
+    }
 
     // 返回更新后的用户信息（不含密码）
     const userObj = user.toObject();
