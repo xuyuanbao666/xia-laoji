@@ -24,7 +24,7 @@ import CollapsibleSection from '../components/CollapsibleSection';
 const RecordScreen: React.FC = () => {
   const route = useRoute<any>();
   const navigation = useNavigation();
-  const { searchResults, isLoading, searchFoods } = useFoodStore();
+  const { searchResults, isLoading, searchFoods, favorites, addFavorite, removeFavorite } = useFoodStore();
   const { createRecord, selectedDate, setSelectedDate, dailySummary, loadDailySummary } = useRecordStore();
 
   // 搜索关键词
@@ -165,6 +165,24 @@ const RecordScreen: React.FC = () => {
     setIsResultsExpanded(false);
     saveToHistory(food);
   };
+
+  // 切换收藏
+  const toggleFavorite = async () => {
+    if (!selectedFood) return;
+    try {
+      const isFav = favorites.some((f) => f._id === selectedFood._id);
+      if (isFav) {
+        await removeFavorite(selectedFood._id);
+      } else {
+        await addFavorite(selectedFood._id);
+      }
+    } catch (error) {
+      Alert.alert('错误', '操作失败');
+    }
+  };
+
+  // 判断是否已收藏
+  const isFavorite = selectedFood ? favorites.some((f) => f._id === selectedFood._id) : false;
 
   // 添加食物到记录
   const handleAddFood = async () => {
@@ -463,12 +481,20 @@ const RecordScreen: React.FC = () => {
                   <Text style={styles.selectedCategory}>{selectedFood.category}</Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setSelectedFood(null)}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
+              <View style={styles.selectedActions}>
+                <TouchableOpacity
+                  style={[styles.favButton, isFavorite && styles.favButtonActive]}
+                  onPress={toggleFavorite}
+                >
+                  <Text style={styles.favButtonText}>{isFavorite ? '⭐' : '☆'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setSelectedFood(null)}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* 营养素标签 */}
@@ -968,6 +994,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999999',
     marginTop: 2,
+  },
+  selectedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  favButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF8E1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  favButtonActive: {
+    backgroundColor: '#FFE4B5',
+  },
+  favButtonText: {
+    fontSize: 18,
   },
   closeButton: {
     width: 32,
