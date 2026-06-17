@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { useRecordStore } from '../store/recordStore';
 import { useFoodStore } from '../store/foodStore';
+import { DietRecord } from '../types';
 
 /**
  * 我的页面 - 用户信息和设置
@@ -20,24 +21,33 @@ import { useFoodStore } from '../store/foodStore';
 const ProfileScreen: React.FC = () => {
   const { user, logout, updateProfile } = useAuthStore();
   const { records, loadRecords } = useRecordStore();
-  const { favorites } = useFoodStore();
+  const { favorites, loadFavorites, removeFavorite } = useFoodStore();
 
-  // 编辑模式
+  // 模态框状态
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  // 编辑数据
   const [editData, setEditData] = useState({
-    name: user?.profile?.name || '',
-    dailyCalories: user?.goals?.dailyCalories?.toString() || '2000',
-    currentWeight: user?.profile?.currentWeight?.toString() || '',
-    height: user?.profile?.height?.toString() || '',
-    targetWeight: user?.profile?.targetWeight?.toString() || '',
+    name: '',
+    dailyCalories: '',
+    protein: '',
+    carbs: '',
+    fat: '',
+    currentWeight: '',
+    height: '',
+    targetWeight: '',
   });
 
-  // 加载记录数据
+  // 加载数据
   useFocusEffect(
     useCallback(() => {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 30);
       loadRecords(weekAgo.toISOString().split('T')[0], new Date().toISOString().split('T')[0]);
+      loadFavorites();
     }, [])
   );
 
@@ -46,18 +56,31 @@ const ProfileScreen: React.FC = () => {
   const totalCalories = records.reduce((sum, r) => sum + (r.totalNutrition?.calories || 0), 0);
   const avgCalories = uniqueDays > 0 ? Math.round(totalCalories / uniqueDays) : 0;
 
-  // 退出登录
-  const handleLogout = () => {
-    Alert.alert('提示', '确定要退出登录吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '确定',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-        },
-      },
-    ]);
+  // 打开编辑资料
+  const openEditModal = () => {
+    setEditData({
+      name: user?.profile?.name || '',
+      dailyCalories: user?.goals?.dailyCalories?.toString() || '2000',
+      protein: user?.goals?.protein?.toString() || '',
+      carbs: user?.goals?.carbs?.toString() || '',
+      fat: user?.goals?.fat?.toString() || '',
+      currentWeight: user?.profile?.currentWeight?.toString() || '',
+      height: user?.profile?.height?.toString() || '',
+      targetWeight: user?.profile?.targetWeight?.toString() || '',
+    });
+    setShowEditModal(true);
+  };
+
+  // 打开饮食目标
+  const openGoalsModal = () => {
+    setEditData({
+      ...editData,
+      dailyCalories: user?.goals?.dailyCalories?.toString() || '2000',
+      protein: user?.goals?.protein?.toString() || '',
+      carbs: user?.goals?.carbs?.toString() || '',
+      fat: user?.goals?.fat?.toString() || '',
+    });
+    setShowGoalsModal(true);
   };
 
   // 保存个人资料
@@ -75,9 +98,9 @@ const ProfileScreen: React.FC = () => {
         },
         goals: {
           dailyCalories: parseInt(editData.dailyCalories) || 2000,
-          protein: user?.goals?.protein || 0,
-          carbs: user?.goals?.carbs || 0,
-          fat: user?.goals?.fat || 0,
+          protein: parseInt(editData.protein) || 0,
+          carbs: parseInt(editData.carbs) || 0,
+          fat: parseInt(editData.fat) || 0,
         },
       });
       setShowEditModal(false);
@@ -87,7 +110,67 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  // 获取 BMI
+  // 保存饮食目标
+  const handleSaveGoals = async () => {
+    try {
+      await updateProfile({
+        profile: user?.profile || { name: '', gender: 'other', birthday: '', height: 0, currentWeight: 0, targetWeight: 0, activityLevel: 'sedentary' },
+        goals: {
+          dailyCalories: parseInt(editData.dailyCalories) || 2000,
+          protein: parseInt(editData.protein) || 0,
+          carbs: parseInt(editData.carbs) || 0,
+          fat: parseInt(editData.fat) || 0,
+        },
+      });
+      setShowGoalsModal(false);
+      Alert.alert('成功', '饮食目标已更新');
+    } catch (error) {
+      Alert.alert('错误', '更新失败，请重试');
+    }
+  };
+
+  // 导出数据
+  const handleExport = () => {
+    const exportData = records.map((r) => ({
+      date: r.date,
+      meal: r.meal,
+      foods: r.foods.map((f) => `${f.name} ${f.amount}g`).join(', '),
+      calories: r.totalNutrition?.calories || 0,
+      protein: r.totalNutrition?.protein || 0,
+      carbs: r.totalNutrition?.carbs || 0,
+      fat: r.totalNutrition?.fat || 0,
+    }));
+
+    const text = exportData.map((r) =>
+      `${r.date} | ${r.meal} | ${r.foods} | ${r.calories}千卡 | 蛋白${r.protein}g 碳水${r.carbs}g 脂肪${r.fat}g`
+    ).join('\n');
+
+    Alert.alert(
+      '导出数据',
+      `共 ${exportData.length} 条记录\n\n${text.substring(0, 500)}${text.length > 500 ? '\n...' : ''}`,
+      [{ text: '确定' }]
+    );
+  };
+
+  // 删除收藏
+  const handleRemoveFavorite = (foodId: string, foodName: string) => {
+    Alert.alert('取消收藏', `确定要取消收藏"${foodName}"吗？`, [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确定',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeFavorite(foodId);
+          } catch (error) {
+            Alert.alert('错误', '取消收藏失败');
+          }
+        },
+      },
+    ]);
+  };
+
+  // BMI
   const getBMI = () => {
     const height = user?.profile?.height;
     const weight = user?.profile?.currentWeight;
@@ -97,7 +180,6 @@ const ProfileScreen: React.FC = () => {
     }
     return null;
   };
-
   const bmi = getBMI();
   const getBMILevel = (bmi: number) => {
     if (bmi < 18.5) return { text: '偏瘦', color: '#4ECDC4' };
@@ -106,55 +188,52 @@ const ProfileScreen: React.FC = () => {
     return { text: '肥胖', color: '#FF6B6B' };
   };
 
+  // 退出登录
+  const handleLogout = () => {
+    Alert.alert('提示', '确定要退出登录吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '确定',
+        style: 'destructive',
+        onPress: async () => { await logout(); },
+      },
+    ]);
+  };
+
   // 菜单项
   const menuItems = [
     {
       title: '编辑资料',
       subtitle: '修改个人信息',
       icon: '✏️',
-      onPress: () => {
-        setEditData({
-          name: user?.profile?.name || '',
-          dailyCalories: user?.goals?.dailyCalories?.toString() || '2000',
-          currentWeight: user?.profile?.currentWeight?.toString() || '',
-          height: user?.profile?.height?.toString() || '',
-          targetWeight: user?.profile?.targetWeight?.toString() || '',
-        });
-        setShowEditModal(true);
-      },
+      onPress: openEditModal,
     },
     {
       title: '饮食目标',
       subtitle: `每日 ${user?.goals?.dailyCalories || 2000} 千卡`,
       icon: '🎯',
-      onPress: () => {
-        setEditData({
-          name: user?.profile?.name || '',
-          dailyCalories: user?.goals?.dailyCalories?.toString() || '2000',
-          currentWeight: user?.profile?.currentWeight?.toString() || '',
-          height: user?.profile?.height?.toString() || '',
-          targetWeight: user?.profile?.targetWeight?.toString() || '',
-        });
-        setShowEditModal(true);
-      },
+      onPress: openGoalsModal,
     },
     {
       title: '我的收藏',
       subtitle: `${favorites.length} 个常用食物`,
       icon: '⭐',
-      onPress: () => {},
+      onPress: () => {
+        loadFavorites();
+        setShowFavoritesModal(true);
+      },
     },
     {
       title: '数据导出',
-      subtitle: '导出饮食记录',
+      subtitle: `已记录 ${records.length} 条`,
       icon: '📤',
-      onPress: () => Alert.alert('提示', '功能开发中...'),
+      onPress: handleExport,
     },
     {
       title: '关于虾牢记',
       subtitle: 'v1.0.0',
       icon: '🦐',
-      onPress: () => Alert.alert('关于', '虾牢记 - 你的饮食记录小助手\n版本 1.0.0'),
+      onPress: () => Alert.alert('关于', '🦐 虾牢记\n你的饮食记录小助手\n\n版本 1.0.0'),
     },
   ];
 
@@ -172,41 +251,21 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.username}>{user?.profile?.name || '小伙伴'}</Text>
             <Text style={styles.email}>{user?.email}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => {
-              setEditData({
-                name: user?.profile?.name || '',
-                dailyCalories: user?.goals?.dailyCalories?.toString() || '2000',
-                currentWeight: user?.profile?.currentWeight?.toString() || '',
-                height: user?.profile?.height?.toString() || '',
-                targetWeight: user?.profile?.targetWeight?.toString() || '',
-              });
-              setShowEditModal(true);
-            }}
-          >
+          <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
             <Text style={styles.editBtnText}>编辑</Text>
           </TouchableOpacity>
         </View>
-
-        {/* 身体数据 */}
         <View style={styles.bodyStats}>
           <View style={[styles.bodyStatItem, { backgroundColor: '#FFE4E1' }]}>
-            <Text style={[styles.bodyStatValue, { color: '#FF6B6B' }]}>
-              {user?.profile?.height || '--'}
-            </Text>
+            <Text style={[styles.bodyStatValue, { color: '#FF6B6B' }]}>{user?.profile?.height || '--'}</Text>
             <Text style={styles.bodyStatLabel}>身高 cm</Text>
           </View>
           <View style={[styles.bodyStatItem, { backgroundColor: '#E0F7FA' }]}>
-            <Text style={[styles.bodyStatValue, { color: '#4ECDC4' }]}>
-              {user?.profile?.currentWeight || '--'}
-            </Text>
+            <Text style={[styles.bodyStatValue, { color: '#4ECDC4' }]}>{user?.profile?.currentWeight || '--'}</Text>
             <Text style={styles.bodyStatLabel}>体重 kg</Text>
           </View>
           <View style={[styles.bodyStatItem, { backgroundColor: '#FFF8E1' }]}>
-            <Text style={[styles.bodyStatValue, { color: '#FFB300' }]}>
-              {bmi || '--'}
-            </Text>
+            <Text style={[styles.bodyStatValue, { color: '#FFB300' }]}>{bmi || '--'}</Text>
             <Text style={styles.bodyStatLabel}>BMI {bmi ? getBMILevel(parseFloat(bmi)).text : ''}</Text>
           </View>
         </View>
@@ -237,10 +296,7 @@ const ProfileScreen: React.FC = () => {
         {menuItems.map((item, index) => (
           <TouchableOpacity
             key={item.title}
-            style={[
-              styles.menuItem,
-              index < menuItems.length - 1 && styles.menuItemBorder,
-            ]}
+            style={[styles.menuItem, index < menuItems.length - 1 && styles.menuItemBorder]}
             onPress={item.onPress}
             activeOpacity={0.7}
           >
@@ -261,98 +317,180 @@ const ProfileScreen: React.FC = () => {
         <Text style={styles.logoutButtonText}>退出登录</Text>
       </TouchableOpacity>
 
-      {/* 底部间距 */}
       <View style={styles.bottomSpacing} />
 
-      {/* 编辑资料模态框 */}
+      {/* ========== 编辑资料模态框 ========== */}
       <Modal visible={showEditModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>编辑资料</Text>
-              <TouchableOpacity
-                style={styles.modalClose}
-                onPress={() => setShowEditModal(false)}
-              >
+              <TouchableOpacity style={styles.modalClose} onPress={() => setShowEditModal(false)}>
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
-
             <ScrollView style={styles.modalContent}>
-              {/* 昵称 */}
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>昵称</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editData.name}
-                  onChangeText={(text) => setEditData({ ...editData, name: text })}
-                  placeholder="输入昵称"
-                />
+                <TextInput style={styles.fieldInput} value={editData.name} onChangeText={(t) => setEditData({ ...editData, name: t })} placeholder="输入昵称" />
               </View>
-
-              {/* 每日目标热量 */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>每日目标热量 (千卡)</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editData.dailyCalories}
-                  onChangeText={(text) => setEditData({ ...editData, dailyCalories: text })}
-                  keyboardType="numeric"
-                  placeholder="2000"
-                />
-              </View>
-
-              {/* 身高体重 */}
               <View style={styles.fieldRow}>
                 <View style={[styles.fieldGroup, { flex: 1, marginRight: 8 }]}>
                   <Text style={styles.fieldLabel}>身高 (cm)</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    value={editData.height}
-                    onChangeText={(text) => setEditData({ ...editData, height: text })}
-                    keyboardType="numeric"
-                    placeholder="170"
-                  />
+                  <TextInput style={styles.fieldInput} value={editData.height} onChangeText={(t) => setEditData({ ...editData, height: t })} keyboardType="numeric" placeholder="170" />
                 </View>
                 <View style={[styles.fieldGroup, { flex: 1, marginLeft: 8 }]}>
                   <Text style={styles.fieldLabel}>体重 (kg)</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    value={editData.currentWeight}
-                    onChangeText={(text) => setEditData({ ...editData, currentWeight: text })}
-                    keyboardType="numeric"
-                    placeholder="65"
-                  />
+                  <TextInput style={styles.fieldInput} value={editData.currentWeight} onChangeText={(t) => setEditData({ ...editData, currentWeight: t })} keyboardType="numeric" placeholder="65" />
                 </View>
               </View>
-
-              {/* 目标体重 */}
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>目标体重 (kg)</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editData.targetWeight}
-                  onChangeText={(text) => setEditData({ ...editData, targetWeight: text })}
-                  keyboardType="numeric"
-                  placeholder="60"
-                />
+                <TextInput style={styles.fieldInput} value={editData.targetWeight} onChangeText={(t) => setEditData({ ...editData, targetWeight: t })} keyboardType="numeric" placeholder="60" />
               </View>
             </ScrollView>
-
             <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setShowEditModal(false)}
-              >
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowEditModal(false)}>
                 <Text style={styles.modalCancelText}>取消</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalSaveBtn}
-                onPress={handleSaveProfile}
-              >
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveProfile}>
                 <Text style={styles.modalSaveText}>保存</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========== 饮食目标模态框 ========== */}
+      <Modal visible={showGoalsModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🎯 饮食目标</Text>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setShowGoalsModal(false)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>每日目标热量 (千卡)</Text>
+                <TextInput style={styles.fieldInput} value={editData.dailyCalories} onChangeText={(t) => setEditData({ ...editData, dailyCalories: t })} keyboardType="numeric" placeholder="2000" />
+              </View>
+              <Text style={styles.fieldHint}>以下为建议值，可根据自身情况调整</Text>
+              <View style={styles.fieldRow}>
+                <View style={[styles.fieldGroup, { flex: 1, marginRight: 4 }]}>
+                  <Text style={styles.fieldLabel}>蛋白质 (g)</Text>
+                  <TextInput style={styles.fieldInput} value={editData.protein} onChangeText={(t) => setEditData({ ...editData, protein: t })} keyboardType="numeric" placeholder="60" />
+                </View>
+                <View style={[styles.fieldGroup, { flex: 1, marginHorizontal: 4 }]}>
+                  <Text style={styles.fieldLabel}>碳水 (g)</Text>
+                  <TextInput style={styles.fieldInput} value={editData.carbs} onChangeText={(t) => setEditData({ ...editData, carbs: t })} keyboardType="numeric" placeholder="250" />
+                </View>
+                <View style={[styles.fieldGroup, { flex: 1, marginLeft: 4 }]}>
+                  <Text style={styles.fieldLabel}>脂肪 (g)</Text>
+                  <TextInput style={styles.fieldInput} value={editData.fat} onChangeText={(t) => setEditData({ ...editData, fat: t })} keyboardType="numeric" placeholder="65" />
+                </View>
+              </View>
+              {/* 快捷预设 */}
+              <Text style={styles.presetTitle}>快捷预设</Text>
+              <View style={styles.presetRow}>
+                {[
+                  { label: '减脂', cal: 1500, p: 80, c: 150, f: 50 },
+                  { label: '维持', cal: 2000, p: 60, c: 250, f: 65 },
+                  { label: '增肌', cal: 2500, p: 100, c: 300, f: 80 },
+                ].map((preset) => (
+                  <TouchableOpacity
+                    key={preset.label}
+                    style={styles.presetBtn}
+                    onPress={() => setEditData({
+                      ...editData,
+                      dailyCalories: preset.cal.toString(),
+                      protein: preset.p.toString(),
+                      carbs: preset.c.toString(),
+                      fat: preset.f.toString(),
+                    })}
+                  >
+                    <Text style={styles.presetBtnText}>{preset.label}</Text>
+                    <Text style={styles.presetBtnCal}>{preset.cal}千卡</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowGoalsModal(false)}>
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveGoals}>
+                <Text style={styles.modalSaveText}>保存</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========== 我的收藏模态框 ========== */}
+      <Modal visible={showFavoritesModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>⭐ 我的收藏</Text>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setShowFavoritesModal(false)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent}>
+              {favorites.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyIcon}>⭐</Text>
+                  <Text style={styles.emptyText}>还没有收藏的食物</Text>
+                  <Text style={styles.emptyHint}>在记录页搜索食物时可以收藏哦~</Text>
+                </View>
+              ) : (
+                favorites.map((food) => (
+                  <View key={food._id} style={styles.favItem}>
+                    <View style={styles.favLeft}>
+                      <View style={styles.favIcon}>
+                        <Text style={styles.favIconText}>🍽️</Text>
+                      </View>
+                      <View style={styles.favInfo}>
+                        <Text style={styles.favName}>{food.nameZh || food.name}</Text>
+                        <Text style={styles.favDetail}>{food.nutrition.calories}千卡/{food.servingName}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.favRemoveBtn}
+                      onPress={() => handleRemoveFavorite(food._id, food.nameZh || food.name)}
+                    >
+                      <Text style={styles.favRemoveText}>取消收藏</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========== 数据导出模态框 ========== */}
+      <Modal visible={showExportModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📤 数据导出</Text>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setShowExportModal(false)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.exportInfo}>
+                <Text style={styles.exportStats}>共 {records.length} 条饮食记录</Text>
+                <Text style={styles.exportStats}>涵盖 {uniqueDays} 天</Text>
+              </View>
+              <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
+                <Text style={styles.exportBtnIcon}>📋</Text>
+                <Text style={styles.exportBtnText}>复制数据到剪贴板</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -361,303 +499,98 @@ const ProfileScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFF5F5',
-  },
-  contentContainer: {
-    padding: 16,
-  },
+  container: { flex: 1, backgroundColor: '#FFF5F5' },
+  contentContainer: { padding: 16 },
 
   // 用户卡片
-  userCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#FF6B6B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  avatarSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FF6B6B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    shadowColor: '#FF6B6B',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  username: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333333',
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 13,
-    color: '#999999',
-  },
-  editBtn: {
-    backgroundColor: '#FFF0F0',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  editBtnText: {
-    fontSize: 13,
-    color: '#FF6B6B',
-    fontWeight: '600',
-  },
+  userCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginBottom: 16, shadowColor: '#FF6B6B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  avatarSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#FF6B6B', alignItems: 'center', justifyContent: 'center', marginRight: 16, shadowColor: '#FF6B6B', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  avatarText: { fontSize: 32, fontWeight: '700', color: '#FFFFFF' },
+  userInfo: { flex: 1 },
+  username: { fontSize: 20, fontWeight: '700', color: '#333333', marginBottom: 4 },
+  email: { fontSize: 13, color: '#999999' },
+  editBtn: { backgroundColor: '#FFF0F0', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
+  editBtnText: { fontSize: 13, color: '#FF6B6B', fontWeight: '600' },
+  bodyStats: { flexDirection: 'row', justifyContent: 'space-between' },
+  bodyStatItem: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, marginHorizontal: 4 },
+  bodyStatValue: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
+  bodyStatLabel: { fontSize: 11, color: '#666666' },
 
-  // 身体数据
-  bodyStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  bodyStatItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginHorizontal: 4,
-  },
-  bodyStatValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  bodyStatLabel: {
-    fontSize: 11,
-    color: '#666666',
-  },
-
-  // 使用统计
-  statsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333333',
-    marginBottom: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginHorizontal: 4,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666666',
-  },
+  // 统计
+  statsCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  statsTitle: { fontSize: 16, fontWeight: '700', color: '#333333', marginBottom: 12 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  statItem: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, marginHorizontal: 4 },
+  statValue: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
+  statLabel: { fontSize: 12, color: '#666666' },
 
   // 菜单
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333333',
-    marginBottom: 12,
-  },
-  menuCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  menuItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-  },
-  menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuIcon: {
-    fontSize: 20,
-  },
-  menuContent: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 2,
-  },
-  menuSubtitle: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  menuArrow: {
-    fontSize: 10,
-    color: '#CCCCCC',
-  },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#333333', marginBottom: 12 },
+  menuCard: { backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  menuIconContainer: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  menuIcon: { fontSize: 20 },
+  menuContent: { flex: 1 },
+  menuTitle: { fontSize: 15, fontWeight: '600', color: '#333333', marginBottom: 2 },
+  menuSubtitle: { fontSize: 12, color: '#999999' },
+  menuArrow: { fontSize: 10, color: '#CCCCCC' },
 
-  // 退出登录
-  logoutButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FFE4E1',
-  },
-  logoutButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FF6B6B',
-  },
+  // 退出
+  logoutButton: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 1.5, borderColor: '#FFE4E1' },
+  logoutButtonText: { fontSize: 15, fontWeight: '600', color: '#FF6B6B' },
+  bottomSpacing: { height: 20 },
 
-  bottomSpacing: {
-    height: 20,
-  },
+  // 通用模态框
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modal: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#333333' },
+  modalClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center' },
+  modalCloseText: { fontSize: 14, color: '#999999' },
+  modalContent: { padding: 16 },
+  modalFooter: { flexDirection: 'row', padding: 16, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  modalCancelBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 12, marginRight: 8 },
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: '#666666' },
+  modalSaveBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', backgroundColor: '#FF6B6B', borderRadius: 12, marginLeft: 8 },
+  modalSaveText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 
-  // 编辑模态框
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  modal: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333333',
-  },
-  modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCloseText: {
-    fontSize: 14,
-    color: '#999999',
-  },
-  modalContent: {
-    padding: 16,
-  },
-  fieldGroup: {
-    marginBottom: 16,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 8,
-  },
-  fieldInput: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    color: '#333333',
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  modalCancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#666666',
-  },
-  modalSaveBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: '#FF6B6B',
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  modalSaveText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  // 表单
+  fieldGroup: { marginBottom: 16 },
+  fieldRow: { flexDirection: 'row' },
+  fieldLabel: { fontSize: 14, fontWeight: '600', color: '#333333', marginBottom: 8 },
+  fieldInput: { backgroundColor: '#F8F8F8', borderRadius: 12, padding: 14, fontSize: 15, color: '#333333', borderWidth: 1, borderColor: '#F0F0F0' },
+  fieldHint: { fontSize: 12, color: '#999999', marginBottom: 16, fontStyle: 'italic' },
+
+  // 预设
+  presetTitle: { fontSize: 14, fontWeight: '600', color: '#333333', marginBottom: 10 },
+  presetRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  presetBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: '#FFF0F0', borderRadius: 12, marginHorizontal: 4 },
+  presetBtnText: { fontSize: 14, fontWeight: '700', color: '#FF6B6B', marginBottom: 2 },
+  presetBtnCal: { fontSize: 11, color: '#999999' },
+
+  // 收藏
+  emptyState: { alignItems: 'center', paddingVertical: 40 },
+  emptyIcon: { fontSize: 40, marginBottom: 8 },
+  emptyText: { fontSize: 15, fontWeight: '600', color: '#999999', marginBottom: 4 },
+  emptyHint: { fontSize: 12, color: '#CCCCCC' },
+  favItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  favLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  favIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  favIconText: { fontSize: 16 },
+  favInfo: { flex: 1 },
+  favName: { fontSize: 14, fontWeight: '600', color: '#333333', marginBottom: 2 },
+  favDetail: { fontSize: 12, color: '#999999' },
+  favRemoveBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F5F5F5' },
+  favRemoveText: { fontSize: 12, color: '#999999' },
+
+  // 导出
+  exportInfo: { alignItems: 'center', marginBottom: 20, paddingVertical: 16, backgroundColor: '#F8F8F8', borderRadius: 12 },
+  exportStats: { fontSize: 15, color: '#333333', marginBottom: 4 },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, backgroundColor: '#FF6B6B', borderRadius: 12 },
+  exportBtnIcon: { fontSize: 18, marginRight: 8 },
+  exportBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 });
 
 export default ProfileScreen;
