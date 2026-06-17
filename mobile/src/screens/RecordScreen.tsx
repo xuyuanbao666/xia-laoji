@@ -11,6 +11,7 @@ import {
   ScrollView,
   TextInput,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useFoodStore } from '../store/foodStore';
 import { useRecordStore } from '../store/recordStore';
@@ -71,6 +72,9 @@ const RecordScreen: React.FC = () => {
 
   // 判断是否是今天
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
+
+  // 日期选择器
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // 当页面获得焦点时，检查是否有新的餐次参数
   useFocusEffect(
@@ -168,31 +172,45 @@ const RecordScreen: React.FC = () => {
     >
       <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* 日期选择器 */}
-        <View style={styles.datePickerContainer}>
-          <TouchableOpacity
-            style={styles.dateArrow}
-            onPress={() => changeDate(-1)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.dateArrowText}>◀</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.datePickerContainer}
+          onPress={() => setShowDatePicker(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.datePickerIcon}>📅</Text>
           <View style={styles.dateDisplay}>
             <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+          </View>
+          <View style={styles.datePickerRight}>
             {!isToday && (
-              <TouchableOpacity onPress={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
+              <TouchableOpacity
+                onPress={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                style={styles.dateBackBtn}
+              >
                 <Text style={styles.dateBackToToday}>回到今天</Text>
               </TouchableOpacity>
             )}
+            <Text style={styles.datePickerArrow}>▶</Text>
           </View>
-          <TouchableOpacity
-            style={[styles.dateArrow, isToday && styles.dateArrowDisabled]}
-            onPress={() => !isToday && changeDate(1)}
-            disabled={isToday}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.dateArrowText, isToday && styles.dateArrowTextDisabled]}>▶</Text>
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
+
+        {/* 原生日期选择器 */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={new Date(selectedDate + 'T00:00:00')}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+            maximumDate={new Date()}
+            minimumDate={new Date(2020, 0, 1)}
+            onChange={(event, date) => {
+              setShowDatePicker(Platform.OS === 'ios');
+              if (date) {
+                const dateStr = date.toISOString().split('T')[0];
+                setSelectedDate(dateStr);
+              }
+            }}
+          />
+        )}
 
         {/* 搜索框 */}
         <View style={styles.searchContainer}>
@@ -491,10 +509,9 @@ const styles = StyleSheet.create({
   datePickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 12,
+    padding: 14,
     marginBottom: 16,
     shadowColor: '#FF6B6B',
     shadowOffset: { width: 0, height: 2 },
@@ -502,37 +519,37 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  dateArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFF0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dateArrowDisabled: {
-    backgroundColor: '#F5F5F5',
-  },
-  dateArrowText: {
-    fontSize: 14,
-    color: '#FF6B6B',
-  },
-  dateArrowTextDisabled: {
-    color: '#CCCCCC',
+  datePickerIcon: {
+    fontSize: 20,
+    marginRight: 10,
   },
   dateDisplay: {
     flex: 1,
-    alignItems: 'center',
   },
   dateText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#333333',
   },
+  datePickerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateBackBtn: {
+    backgroundColor: '#FFF0F0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 8,
+  },
   dateBackToToday: {
     fontSize: 12,
     color: '#FF6B6B',
-    marginTop: 4,
+    fontWeight: '600',
+  },
+  datePickerArrow: {
+    fontSize: 12,
+    color: '#CCCCCC',
   },
 
   // 搜索框
