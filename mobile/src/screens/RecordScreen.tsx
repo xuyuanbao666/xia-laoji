@@ -108,6 +108,13 @@ const RecordScreen: React.FC = () => {
         setMealType(globalMeal);
         (globalThis as any).selectedMealType = null;
       }
+      // 从收藏快速添加
+      const quickAddFood = (globalThis as any).selectedFoodForQuickAdd;
+      if (quickAddFood) {
+        setSelectedFood(quickAddFood);
+        setServings('1');
+        (globalThis as any).selectedFoodForQuickAdd = null;
+      }
       // 加载历史记录和今日摘要
       loadHistory();
       loadDailySummary(selectedDate);

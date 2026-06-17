@@ -9,16 +9,17 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { useRecordStore } from '../store/recordStore';
 import { useFoodStore } from '../store/foodStore';
-import { DietRecord } from '../types';
+import { DietRecord, Food } from '../types';
 
 /**
  * 我的页面 - 用户信息和设置
  */
 const ProfileScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { user, logout, updateProfile } = useAuthStore();
   const { records, loadRecords } = useRecordStore();
   const { favorites, loadFavorites, removeFavorite } = useFoodStore();
@@ -168,6 +169,32 @@ const ProfileScreen: React.FC = () => {
         },
       },
     ]);
+  };
+
+  // 快速添加到餐次
+  const handleQuickAdd = (food: Food) => {
+    const mealTypes = [
+      { key: 'breakfast', label: '早餐', icon: '🌅' },
+      { key: 'lunch', label: '午餐', icon: '☀️' },
+      { key: 'dinner', label: '晚餐', icon: '🌙' },
+      { key: 'snack', label: '加餐', icon: '🍪' },
+    ];
+
+    Alert.alert(
+      `添加 ${food.nameZh || food.name}`,
+      '选择要添加到哪一餐',
+      mealTypes.map((meal) => ({
+        text: `${meal.icon} ${meal.label}`,
+        onPress: () => {
+          // 传递食物数据到记录页
+          (globalThis as any).selectedMealType = meal.key;
+          (globalThis as any).selectedFoodForQuickAdd = food;
+          setShowFavoritesModal(false);
+          navigation.navigate('RecordTab');
+        },
+      })),
+      { cancelable: true }
+    );
   };
 
   // BMI
@@ -433,7 +460,7 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>⭐ 我的收藏</Text>
+              <Text style={styles.modalTitle}>⭐ 我的收藏 ({favorites.length})</Text>
               <TouchableOpacity style={styles.modalClose} onPress={() => setShowFavoritesModal(false)}>
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
@@ -444,24 +471,70 @@ const ProfileScreen: React.FC = () => {
                   <Text style={styles.emptyIcon}>⭐</Text>
                   <Text style={styles.emptyText}>还没有收藏的食物</Text>
                   <Text style={styles.emptyHint}>在记录页搜索食物时可以收藏哦~</Text>
+                  <TouchableOpacity
+                    style={styles.emptyGoBtn}
+                    onPress={() => {
+                      setShowFavoritesModal(false);
+                      navigation.navigate('RecordTab');
+                    }}
+                  >
+                    <Text style={styles.emptyGoBtnText}>去记录页 →</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 favorites.map((food) => (
-                  <View key={food._id} style={styles.favItem}>
-                    <View style={styles.favLeft}>
-                      <View style={styles.favIcon}>
-                        <Text style={styles.favIconText}>🍽️</Text>
+                  <View key={food._id} style={styles.favCard}>
+                    <View style={styles.favCardHeader}>
+                      <View style={styles.favCardLeft}>
+                        <View style={styles.favIcon}>
+                          <Text style={styles.favIconText}>🍽️</Text>
+                        </View>
+                        <View style={styles.favInfo}>
+                          <Text style={styles.favName}>{food.nameZh || food.name}</Text>
+                          <Text style={styles.favCategory}>{food.category}</Text>
+                        </View>
                       </View>
-                      <View style={styles.favInfo}>
-                        <Text style={styles.favName}>{food.nameZh || food.name}</Text>
-                        <Text style={styles.favDetail}>{food.nutrition.calories}千卡/{food.servingName}</Text>
+                      <TouchableOpacity
+                        style={styles.favRemoveBtn}
+                        onPress={() => handleRemoveFavorite(food._id, food.nameZh || food.name)}
+                      >
+                        <Text style={styles.favRemoveText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {/* 营养素标签 */}
+                    <View style={styles.favNutrients}>
+                      <View style={[styles.favNutrientTag, { backgroundColor: '#FFE4E1' }]}>
+                        <Text style={[styles.favNutrientValue, { color: '#FF6B6B' }]}>
+                          {Math.round(food.nutrition.calories)}
+                        </Text>
+                        <Text style={styles.favNutrientLabel}>千卡</Text>
+                      </View>
+                      <View style={[styles.favNutrientTag, { backgroundColor: '#E0F7FA' }]}>
+                        <Text style={[styles.favNutrientValue, { color: '#4ECDC4' }]}>
+                          {Math.round(food.nutrition.protein)}g
+                        </Text>
+                        <Text style={styles.favNutrientLabel}>蛋白</Text>
+                      </View>
+                      <View style={[styles.favNutrientTag, { backgroundColor: '#FFF8E1' }]}>
+                        <Text style={[styles.favNutrientValue, { color: '#FFB300' }]}>
+                          {Math.round(food.nutrition.carbs)}g
+                        </Text>
+                        <Text style={styles.favNutrientLabel}>碳水</Text>
+                      </View>
+                      <View style={[styles.favNutrientTag, { backgroundColor: '#F3E5F5' }]}>
+                        <Text style={[styles.favNutrientValue, { color: '#9C27B0' }]}>
+                          {Math.round(food.nutrition.fat)}g
+                        </Text>
+                        <Text style={styles.favNutrientLabel}>脂肪</Text>
                       </View>
                     </View>
+                    {/* 快速添加按钮 */}
                     <TouchableOpacity
-                      style={styles.favRemoveBtn}
-                      onPress={() => handleRemoveFavorite(food._id, food.nameZh || food.name)}
+                      style={styles.favAddBtn}
+                      onPress={() => handleQuickAdd(food)}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.favRemoveText}>取消收藏</Text>
+                      <Text style={styles.favAddBtnText}>+ 快速添加</Text>
                     </TouchableOpacity>
                   </View>
                 ))
@@ -574,16 +647,25 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyIcon: { fontSize: 40, marginBottom: 8 },
   emptyText: { fontSize: 15, fontWeight: '600', color: '#999999', marginBottom: 4 },
-  emptyHint: { fontSize: 12, color: '#CCCCCC' },
-  favItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  favLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  favIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  favIconText: { fontSize: 16 },
+  emptyHint: { fontSize: 12, color: '#CCCCCC', marginBottom: 16 },
+  emptyGoBtn: { backgroundColor: '#FF6B6B', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  emptyGoBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  favCard: { backgroundColor: '#F8F8F8', borderRadius: 12, padding: 12, marginBottom: 10 },
+  favCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  favCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  favIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  favIconText: { fontSize: 18 },
   favInfo: { flex: 1 },
-  favName: { fontSize: 14, fontWeight: '600', color: '#333333', marginBottom: 2 },
-  favDetail: { fontSize: 12, color: '#999999' },
-  favRemoveBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F5F5F5' },
-  favRemoveText: { fontSize: 12, color: '#999999' },
+  favName: { fontSize: 15, fontWeight: '700', color: '#333333', marginBottom: 2 },
+  favCategory: { fontSize: 12, color: '#999999' },
+  favRemoveBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFE4E1', justifyContent: 'center', alignItems: 'center' },
+  favRemoveText: { fontSize: 12, color: '#FF6B6B', fontWeight: '600' },
+  favNutrients: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  favNutrientTag: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 8, marginHorizontal: 2 },
+  favNutrientValue: { fontSize: 13, fontWeight: '700' },
+  favNutrientLabel: { fontSize: 10, color: '#666666', marginTop: 2 },
+  favAddBtn: { backgroundColor: '#FF6B6B', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  favAddBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
 
   // 导出
   exportInfo: { alignItems: 'center', marginBottom: 20, paddingVertical: 16, backgroundColor: '#F8F8F8', borderRadius: 12 },
