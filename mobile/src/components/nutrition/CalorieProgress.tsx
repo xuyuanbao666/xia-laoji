@@ -16,13 +16,15 @@ const CalorieProgress: React.FC<CalorieProgressProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* 顶部：已摄入 / 目标 */}
+      {/* 顶部标题 */}
       <View style={styles.header}>
-        <Text style={styles.title}>今日热量</Text>
-        <Text style={styles.subtitle}>
-          <Text style={styles.consumedValue}>{consumed}</Text>
-          <Text style={styles.unit}> / {target} kcal</Text>
-        </Text>
+        <Text style={styles.title}>🔥 今日热量</Text>
+      </View>
+
+      {/* 热量数字 */}
+      <View style={styles.calorieDisplay}>
+        <Text style={styles.consumedValue}>{consumed}</Text>
+        <Text style={styles.unit}> / {target} 千卡</Text>
       </View>
 
       {/* 进度条 */}
@@ -38,28 +40,25 @@ const CalorieProgress: React.FC<CalorieProgressProps> = ({
         />
       </View>
 
-      {/* 底部：剩余热量 */}
+      {/* 底部统计 */}
       <View style={styles.footer}>
-        <View style={styles.footerItem}>
+        <View style={[styles.footerItem, { backgroundColor: '#E8F5E9' }]}>
+          <Text style={[styles.footerValue, { color: '#4CAF50' }]}>
+            {consumed}
+          </Text>
           <Text style={styles.footerLabel}>已摄入</Text>
-          <Text style={[styles.footerValue, { color: '#4ECDC4' }]}>
-            {consumed} kcal
-          </Text>
         </View>
-        <View style={styles.footerItem}>
-          <Text style={styles.footerLabel}>剩余</Text>
-          <Text
-            style={[
-              styles.footerValue,
-              { color: isOver ? '#FF6B6B' : '#4ECDC4' },
-            ]}
-          >
-            {isOver ? `超 ${consumed - target}` : remaining} kcal
+        <View style={[styles.footerItem, { backgroundColor: isOver ? '#FFEBEE' : '#E0F7FA' }]}>
+          <Text style={[styles.footerValue, { color: isOver ? '#FF6B6B' : '#4ECDC4' }]}>
+            {isOver ? `超 ${consumed - target}` : remaining}
           </Text>
+          <Text style={styles.footerLabel}>{isOver ? '超出' : '剩余'}</Text>
         </View>
-        <View style={styles.footerItem}>
+        <View style={[styles.footerItem, { backgroundColor: '#F3E5F5' }]}>
+          <Text style={[styles.footerValue, { color: '#9C27B0' }]}>
+            {target}
+          </Text>
           <Text style={styles.footerLabel}>目标</Text>
-          <Text style={styles.footerValue}>{target} kcal</Text>
         </View>
       </View>
     </View>
@@ -69,62 +68,66 @@ const CalorieProgress: React.FC<CalorieProgressProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: '#FF6B6B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 3,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 14,
-    color: '#999999',
-    marginBottom: 4,
-  },
-  subtitle: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  consumedValue: {
-    fontSize: 32,
+    fontSize: 16,
     fontWeight: '700',
     color: '#333333',
+  },
+  calorieDisplay: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 16,
+  },
+  consumedValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#FF6B6B',
   },
   unit: {
     fontSize: 16,
     color: '#999999',
   },
   progressTrack: {
-    height: 12,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 6,
+    height: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 5,
     overflow: 'hidden',
     marginBottom: 16,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 6,
+    borderRadius: 5,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   footerItem: {
+    flex: 1,
     alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginHorizontal: 4,
   },
   footerLabel: {
-    fontSize: 12,
-    color: '#999999',
-    marginBottom: 2,
+    fontSize: 11,
+    color: '#666666',
+    marginTop: 4,
   },
   footerValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

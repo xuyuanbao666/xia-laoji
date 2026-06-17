@@ -12,7 +12,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRecordStore } from '../store/recordStore';
 import { useAuthStore } from '../store/authStore';
 import { CalorieProgress } from '../components/nutrition';
-import { Card, Button } from '../components/common';
 
 /**
  * 首页 - 显示今日热量进度和各餐次记录
@@ -54,10 +53,10 @@ const HomeScreen: React.FC = () => {
   };
 
   const meals = [
-    { key: 'breakfast', label: '早餐', icon: '🌅', data: getMealData('breakfast') },
-    { key: 'lunch', label: '午餐', icon: '☀️', data: getMealData('lunch') },
-    { key: 'dinner', label: '晚餐', icon: '🌙', data: getMealData('dinner') },
-    { key: 'snack', label: '加餐', icon: '🍪', data: getMealData('snack') },
+    { key: 'breakfast', label: '早餐', icon: '🌅', color: '#FFE4B5', data: getMealData('breakfast') },
+    { key: 'lunch', label: '午餐', icon: '☀️', color: '#FFDAB9', data: getMealData('lunch') },
+    { key: 'dinner', label: '晚餐', icon: '🌙', color: '#E6E6FA', data: getMealData('dinner') },
+    { key: 'snack', label: '加餐', icon: '🍪', color: '#FFF0F5', data: getMealData('snack') },
   ];
 
   // 快速添加食物
@@ -98,6 +97,18 @@ const HomeScreen: React.FC = () => {
     return Object.values(merged);
   };
 
+  // 获取问候语
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 6) return '夜深了 🌙';
+    if (hour < 9) return '早上好 🌅';
+    if (hour < 12) return '上午好 ☀️';
+    if (hour < 14) return '中午好 🍱';
+    if (hour < 18) return '下午好 🍵';
+    if (hour < 22) return '晚上好 🌆';
+    return '夜深了 🌙';
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -108,12 +119,16 @@ const HomeScreen: React.FC = () => {
     >
       {/* 顶部问候 */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>
-          你好啊，{user?.profile?.name || '小伙伴'} 👋
-        </Text>
+        <View style={styles.greetingContainer}>
+          <Text style={styles.greeting}>
+            {getGreeting()}
+          </Text>
+          <Text style={styles.userName}>
+            {user?.profile?.name || '小伙伴'} ✨
+          </Text>
+        </View>
         <Text style={styles.date}>
           {new Date().toLocaleDateString('zh-CN', {
-            year: 'numeric',
             month: 'long',
             day: 'numeric',
             weekday: 'long',
@@ -128,80 +143,130 @@ const HomeScreen: React.FC = () => {
       />
 
       {/* 营养素概览 */}
-      <Card style={styles.nutrientCard}>
-        <Text style={styles.sectionTitle}>今日营养素</Text>
+      <View style={styles.nutrientCard}>
+        <Text style={styles.nutrientTitle}>📊 今日营养素</Text>
         <View style={styles.nutrientRow}>
-          <View style={styles.nutrientItem}>
+          <View style={[styles.nutrientItem, { backgroundColor: '#FFE4E1' }]}>
             <Text style={[styles.nutrientValue, { color: '#FF6B6B' }]}>
               {dailySummary?.totalProtein || 0}g
             </Text>
             <Text style={styles.nutrientLabel}>蛋白质</Text>
           </View>
-          <View style={styles.nutrientItem}>
+          <View style={[styles.nutrientItem, { backgroundColor: '#E0F7FA' }]}>
             <Text style={[styles.nutrientValue, { color: '#4ECDC4' }]}>
               {dailySummary?.totalCarbs || 0}g
             </Text>
             <Text style={styles.nutrientLabel}>碳水</Text>
           </View>
-          <View style={styles.nutrientItem}>
-            <Text style={[styles.nutrientValue, { color: '#FFD93D' }]}>
+          <View style={[styles.nutrientItem, { backgroundColor: '#FFF8E1' }]}>
+            <Text style={[styles.nutrientValue, { color: '#FFB300' }]}>
               {dailySummary?.totalFat || 0}g
             </Text>
             <Text style={styles.nutrientLabel}>脂肪</Text>
           </View>
         </View>
-      </Card>
+      </View>
 
       {/* 各餐次记录 */}
-      <Text style={styles.sectionTitle}>饮食记录</Text>
+      <Text style={styles.sectionTitle}>🍽️ 饮食记录</Text>
       {meals.map((meal) => {
         const isExpanded = expandedMeal === meal.key;
         const foods = getMealFoods(meal.key);
+        const hasFood = meal.data.recordCount > 0;
+
         return (
-          <Card key={meal.key} style={styles.mealCard}>
-            <TouchableOpacity onPress={() => toggleMeal(meal.key)}>
+          <View key={meal.key} style={styles.mealCard}>
+            {/* 餐次头部 */}
+            <TouchableOpacity
+              onPress={() => hasFood && toggleMeal(meal.key)}
+              activeOpacity={hasFood ? 0.7 : 1}
+            >
               <View style={styles.mealHeader}>
                 <View style={styles.mealTitleRow}>
-                  <Text style={styles.mealIcon}>{meal.icon}</Text>
-                  <Text style={styles.mealLabel}>{meal.label}</Text>
-                  {meal.data.recordCount > 0 && (
-                    <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
+                  <View style={[styles.mealIconContainer, { backgroundColor: meal.color }]}>
+                    <Text style={styles.mealIcon}>{meal.icon}</Text>
+                  </View>
+                  <View style={styles.mealInfo}>
+                    <Text style={styles.mealLabel}>{meal.label}</Text>
+                    {hasFood && (
+                      <Text style={styles.mealCalories}>
+                        {meal.data.calories} 千卡
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.mealRight}>
+                  {hasFood && (
+                    <Text style={styles.expandIcon}>
+                      {isExpanded ? '▼' : '▶'}
+                    </Text>
                   )}
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => handleQuickAdd(meal.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.addButtonText}>+ 添加</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => handleQuickAdd(meal.key)}
-                >
-                  <Text style={styles.addButtonText}>+ 添加</Text>
-                </TouchableOpacity>
               </View>
-              {meal.data.recordCount > 0 ? (
-                <View style={styles.mealStats}>
-                  <Text style={styles.mealCalories}>{meal.data.calories} kcal</Text>
-                  <Text style={styles.mealNutrients}>
-                    蛋白质 {meal.data.protein}g · 碳水 {meal.data.carbs}g · 脂肪 {meal.data.fat}g
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.emptyMeal}>还没有记录，快去添加吧~</Text>
-              )}
             </TouchableOpacity>
+
+            {/* 营养素摘要（有记录时显示） */}
+            {hasFood && !isExpanded && (
+              <View style={styles.mealNutrients}>
+                <View style={styles.nutrientDot}>
+                  <View style={[styles.dot, { backgroundColor: '#FF6B6B' }]} />
+                  <Text style={styles.nutrientText}>蛋白 {meal.data.protein}g</Text>
+                </View>
+                <View style={styles.nutrientDot}>
+                  <View style={[styles.dot, { backgroundColor: '#4ECDC4' }]} />
+                  <Text style={styles.nutrientText}>碳水 {meal.data.carbs}g</Text>
+                </View>
+                <View style={styles.nutrientDot}>
+                  <View style={[styles.dot, { backgroundColor: '#FFB300' }]} />
+                  <Text style={styles.nutrientText}>脂肪 {meal.data.fat}g</Text>
+                </View>
+              </View>
+            )}
+
+            {/* 空状态 */}
+            {!hasFood && (
+              <TouchableOpacity
+                style={styles.emptyMealContainer}
+                onPress={() => handleQuickAdd(meal.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.emptyMealText}>还没有记录，点击添加~</Text>
+                <Text style={styles.emptyMealIcon}>👉</Text>
+              </TouchableOpacity>
+            )}
+
             {/* 展开的食物列表 */}
             {isExpanded && foods.length > 0 && (
               <View style={styles.foodList}>
                 <View style={styles.foodListHeader}>
-                  <Text style={styles.foodListTitle}>忒牢鸡了以下东西:</Text>
+                  <Text style={styles.foodListTitle}>📝 记录详情</Text>
                 </View>
                 {foods.map((food: any, index: number) => (
                   <View key={index} style={styles.foodItem}>
-                    <Text style={styles.foodName}>{food.nameZh || food.name}</Text>
-                    <Text style={styles.foodAmount}>{food.amount}g</Text>
-                    <Text style={styles.foodCalories}>{Math.round(food.nutrition?.calories || 0)} kcal</Text>
+                    <View style={styles.foodItemLeft}>
+                      <View style={styles.foodDot} />
+                      <Text style={styles.foodName} numberOfLines={1}>
+                        {food.nameZh || food.name}
+                      </Text>
+                    </View>
+                    <View style={styles.foodItemRight}>
+                      <Text style={styles.foodAmount}>{Math.round(food.amount)}g</Text>
+                      <Text style={styles.foodCalories}>
+                        {Math.round(food.nutrition?.calories || 0)} 千卡
+                      </Text>
+                    </View>
                   </View>
                 ))}
               </View>
             )}
-          </Card>
+          </View>
         );
       })}
 
@@ -214,40 +279,71 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFF5F5',
   },
   contentContainer: {
     padding: 16,
   },
+
+  // 顶部问候
   header: {
     marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  greetingContainer: {
+    marginBottom: 8,
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#333333',
     marginBottom: 4,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FF6B6B',
   },
   date: {
     fontSize: 14,
     color: '#999999',
   },
+
+  // 营养素卡片
   nutrientCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
     marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  sectionTitle: {
+  nutrientTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333333',
-    marginTop: 20,
     marginBottom: 12,
   },
   nutrientRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
   },
   nutrientItem: {
+    flex: 1,
     alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginHorizontal: 4,
   },
   nutrientValue: {
     fontSize: 18,
@@ -256,10 +352,29 @@ const styles = StyleSheet.create({
   },
   nutrientLabel: {
     fontSize: 12,
-    color: '#999999',
+    color: '#666666',
   },
-  mealCard: {
+
+  // 饮食记录标题
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333333',
+    marginTop: 24,
     marginBottom: 12,
+  },
+
+  // 餐次卡片
+  mealCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   mealHeader: {
     flexDirection: 'row',
@@ -269,58 +384,104 @@ const styles = StyleSheet.create({
   mealTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  mealIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   mealIcon: {
-    fontSize: 20,
-    marginRight: 8,
+    fontSize: 24,
+  },
+  mealInfo: {
+    flex: 1,
   },
   mealLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333333',
+    marginBottom: 2,
+  },
+  mealCalories: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+  mealRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expandIcon: {
+    fontSize: 12,
+    color: '#CCCCCC',
+    marginRight: 8,
   },
   addButton: {
     backgroundColor: '#FFF0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   addButtonText: {
     fontSize: 13,
     color: '#FF6B6B',
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  mealStats: {
+
+  // 营养素摘要
+  mealNutrients: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#F5F5F5',
   },
-  mealCalories: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333333',
-    marginBottom: 4,
+  nutrientDot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
   },
-  mealNutrients: {
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  nutrientText: {
     fontSize: 12,
-    color: '#999999',
+    color: '#666666',
   },
-  emptyMeal: {
+
+  // 空状态
+  emptyMealContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+  },
+  emptyMealText: {
     fontSize: 13,
     color: '#CCCCCC',
-    marginTop: 8,
+    marginRight: 8,
   },
-  expandIcon: {
-    fontSize: 12,
-    color: '#999999',
-    marginLeft: 8,
+  emptyMealIcon: {
+    fontSize: 14,
   },
+
+  // 食物列表
   foodList: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#F5F5F5',
   },
   foodListHeader: {
     marginBottom: 8,
@@ -334,14 +495,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: '#F8F8F8',
+  },
+  foodItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  foodDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFB5B5',
+    marginRight: 10,
   },
   foodName: {
     fontSize: 14,
     color: '#333333',
     flex: 1,
+  },
+  foodItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   foodAmount: {
     fontSize: 13,
@@ -353,6 +530,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FF6B6B',
   },
+
   bottomSpacing: {
     height: 20,
   },
