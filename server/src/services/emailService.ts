@@ -1,11 +1,12 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
 
-// QQ邮箱 SMTP 配置 - 强制使用 IPv4
+// 强制使用 IPv4
+dns.setDefaultResultOrder('ipv4first');
+
+// QQ邮箱 SMTP 配置
 const transporter = nodemailer.createTransport({
-  host: 'smtp.qq.com',
-  port: 465,
-  secure: true,
-  family: 4, // 强制使用 IPv4
+  service: 'qq',
   auth: {
     user: '428738807@qq.com',
     pass: 'zjtlcblnqyozbged', // 授权码
