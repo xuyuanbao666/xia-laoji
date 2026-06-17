@@ -11,7 +11,6 @@ import {
   Share,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import Clipboard from '@react-native-clipboard/clipboard';
 import { useAuthStore } from '../store/authStore';
 import { useRecordStore } from '../store/recordStore';
 import { useFoodStore } from '../store/foodStore';
@@ -172,11 +171,17 @@ const ProfileScreen: React.FC = () => {
     }).join('\n\n');
   };
 
-  // 复制到剪贴板
-  const handleCopyToClipboard = () => {
+  // 复制到剪贴板（使用系统分享代替）
+  const handleCopyToClipboard = async () => {
     const text = generateExportData('text');
-    Clipboard.setString(text);
-    Alert.alert('已复制', `已复制 ${records.length} 条记录到剪贴板`);
+    try {
+      await Share.share({
+        message: text,
+        title: '饮食记录',
+      });
+    } catch (error) {
+      // 用户取消
+    }
   };
 
   // 系统分享
@@ -637,7 +642,7 @@ const ProfileScreen: React.FC = () => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.exportCopyBtn} onPress={handleCopyToClipboard}>
                 <Text style={styles.exportCopyBtnIcon}>📋</Text>
-                <Text style={styles.exportCopyBtnText}>复制到剪贴板</Text>
+                <Text style={styles.exportCopyBtnText}>分享文本数据</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
