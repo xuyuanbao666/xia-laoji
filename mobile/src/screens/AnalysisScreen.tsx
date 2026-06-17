@@ -12,11 +12,12 @@ import { LineChart } from 'react-native-chart-kit';
 import { useRecordStore } from '../store/recordStore';
 import { useAuthStore } from '../store/authStore';
 import { NutrientChart } from '../components/nutrition';
+import { DietRecord } from '../types';
 
 const screenWidth = Dimensions.get('window').width;
 
 /**
- * 分析页 - 显示热量趋势和营养素占比
+ * 分析页 - 显示热量趋势、营养素占比、饮食洞察
  */
 const AnalysisScreen: React.FC = () => {
   const { user } = useAuthStore();
@@ -44,6 +45,9 @@ const AnalysisScreen: React.FC = () => {
     carbs: 0,
     fat: 0,
   });
+
+  // 餐次统计
+  const [mealStats, setMealStats] = useState<Record<string, number>>({});
 
   // 加载数据
   useEffect(() => {
@@ -107,6 +111,12 @@ const AnalysisScreen: React.FC = () => {
     let totalProtein = 0;
     let totalCarbs = 0;
     let totalFat = 0;
+    const mealStatsTemp: Record<string, number> = {
+      breakfast: 0,
+      lunch: 0,
+      dinner: 0,
+      snack: 0,
+    };
 
     records.forEach((record) => {
       const dateStr = record.date.split('T')[0];
@@ -119,6 +129,11 @@ const AnalysisScreen: React.FC = () => {
       totalProtein += record.totalNutrition?.protein || 0;
       totalCarbs += record.totalNutrition?.carbs || 0;
       totalFat += record.totalNutrition?.fat || 0;
+
+      // 统计餐次
+      if (mealStatsTemp[record.meal] !== undefined) {
+        mealStatsTemp[record.meal] += record.totalNutrition?.calories || 0;
+      }
     });
 
     const calories = dates.map((d) => Math.round(caloriesMap[d] || 0));
@@ -132,6 +147,7 @@ const AnalysisScreen: React.FC = () => {
       carbs: Math.round(totalCarbs * 10) / 10,
       fat: Math.round(totalFat * 10) / 10,
     });
+    setMealStats(mealStatsTemp);
   }, [records, reportType]);
 
   const onRefresh = useCallback(() => {
@@ -146,6 +162,47 @@ const AnalysisScreen: React.FC = () => {
     : 0;
   const daysOnTarget = calories.filter((c) => c > 0 && c <= calorieGoal).length;
   const totalCalories = Math.round(calories.reduce((a, b) => a + b, 0));
+
+  // 计算连续达标天数（从今天往回数）
+  const getStreak = () => {
+    let streak = 0;
+    for (let i = calories.length - 1; i >= 0; i--) {
+      if (calories[i] > 0 && calories[i] <= calorieGoal) {
+        streak++;
+      } else if (calories[i] > 0) {
+        break;
+      }
+    }
+    return streak;
+  };
+  const streak = getStreak();
+
+  // 找出最高/最低热量日
+  const daysWithDataArr = calories
+    .map((cal, i) => ({ cal, index: i }))
+    .filter((d) => d.cal > 0);
+  const highestDay = daysWithDataArr.length > 0
+    ? daysWithDataArr.reduce((max, d) => (d.cal > max.cal ? d : max), daysWithDataArr[0])
+    : null;
+  const lowestDay = daysWithDataArr.length > 0
+    ? daysWithDataArr.reduce((min, d) => (d.cal < min.cal ? d : min), daysWithDataArr[0])
+    : null;
+
+  // 餐次热量占比
+  const totalMealCalories = Object.values(mealStats).reduce((a, b) => a + b, 0);
+  const mealPercentages = {
+    breakfast: totalMealCalories > 0 ? Math.round((mealStats.breakfast / totalMealCalories) * 100) : 0,
+    lunch: totalMealCalories > 0 ? Math.round((mealStats.lunch / totalMealCalories) * 100) : 0,
+    dinner: totalMealCalories > 0 ? Math.round((mealStats.dinner / totalMealCalories) * 100) : 0,
+    snack: totalMealCalories > 0 ? Math.round((mealStats.snack / totalMealCalories) * 100) : 0,
+  };
+
+  const mealLabels: Record<string, { label: string; icon: string; color: string }> = {
+    breakfast: { label: '早餐', icon: '🌅', color: '#FFE4B5' },
+    lunch: { label: '午餐', icon: '☀️', color: '#FFDAB9' },
+    dinner: { label: '晚餐', icon: '🌙', color: '#E6E6FA' },
+    snack: { label: '加餐', icon: '🍪', color: '#FFF0F5' },
+  };
 
   return (
     <ScrollView
@@ -204,6 +261,36 @@ const AnalysisScreen: React.FC = () => {
           </View>
         </View>
       </View>
+
+      {/* 饮食洞察 */}
+      {daysWithData > 0 && (
+        <View style={styles.insightCard}>
+          <Text style={styles.insightTitle}>💡 饮食洞察</Text>
+          <View style={styles.insightRow}>
+            {streak > 0 && (
+              <View style={[styles.insightItem, { backgroundColor: '#FFF8E1' }]}>
+                <Text style={styles.insightIcon}>🔥</Text>
+                <Text style={styles.insightValue}>{streak}天</Text>
+                <Text style={styles.insightLabel}>连续达标</Text>
+              </View>
+            )}
+            {highestDay && (
+              <View style={[styles.insightItem, { backgroundColor: '#FFEBEE' }]}>
+                <Text style={styles.insightIcon}>📈</Text>
+                <Text style={[styles.insightValue, { color: '#FF6B6B' }]}>{highestDay.cal}</Text>
+                <Text style={styles.insightLabel}>最高日</Text>
+              </View>
+            )}
+            {lowestDay && (
+              <View style={[styles.insightItem, { backgroundColor: '#E8F5E9' }]}>
+                <Text style={styles.insightIcon}>📉</Text>
+                <Text style={[styles.insightValue, { color: '#4CAF50' }]}>{lowestDay.cal}</Text>
+                <Text style={styles.insightLabel}>最低日</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* 热量趋势图 */}
       <Text style={styles.sectionTitle}>🔥 热量趋势</Text>
@@ -275,6 +362,42 @@ const AnalysisScreen: React.FC = () => {
         fat={totalNutrients.fat}
       />
 
+      {/* 餐次热量分布 */}
+      {totalMealCalories > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>🍽️ 餐次分布</Text>
+          <View style={styles.mealDistCard}>
+            {Object.entries(mealLabels).map(([key, info]) => {
+              const cal = mealStats[key] || 0;
+              const pct = mealPercentages[key as keyof typeof mealPercentages];
+              if (cal === 0) return null;
+              return (
+                <View key={key} style={styles.mealDistRow}>
+                  <View style={styles.mealDistLeft}>
+                    <View style={[styles.mealDistIcon, { backgroundColor: info.color }]}>
+                      <Text style={styles.mealDistIconText}>{info.icon}</Text>
+                    </View>
+                    <Text style={styles.mealDistLabel}>{info.label}</Text>
+                  </View>
+                  <View style={styles.mealDistBar}>
+                    <View
+                      style={[
+                        styles.mealDistBarFill,
+                        { width: `${pct}%`, backgroundColor: info.color.replace('FF', 'CC') },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.mealDistRight}>
+                    <Text style={styles.mealDistCal}>{Math.round(cal)}千卡</Text>
+                    <Text style={styles.mealDistPct}>{pct}%</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </>
+      )}
+
       {/* 每日详情 */}
       <Text style={styles.sectionTitle}>📅 每日记录</Text>
       {dailyData.dates.map((date, index) => {
@@ -290,21 +413,38 @@ const AnalysisScreen: React.FC = () => {
           ? weekdays[dateObj.getDay()]
           : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
 
+        // 判断是否是最高/最低日
+        const isHighest = highestDay && highestDay.index === index;
+        const isLowest = lowestDay && lowestDay.index === index;
+
         return (
-          <View key={date} style={styles.dayCard}>
+          <View
+            key={date}
+            style={[
+              styles.dayCard,
+              isHighest && styles.dayCardHighest,
+              isLowest && styles.dayCardLowest,
+            ]}
+          >
             <View style={styles.dayHeader}>
               <View style={styles.dayLeft}>
-                <Text style={styles.dayDate}>{dateDisplay}</Text>
+                <View style={styles.dayDateRow}>
+                  <Text style={styles.dayDate}>{dateDisplay}</Text>
+                  {isHighest && <Text style={styles.dayBadge}>📈 最高</Text>}
+                  {isLowest && <Text style={[styles.dayBadge, { backgroundColor: '#E8F5E9', color: '#4CAF50' }]}>📉 最低</Text>}
+                </View>
                 {hasData && (
                   <Text style={styles.dayNutrients}>
                     蛋白{dailyData.protein[index]}g · 碳水{dailyData.carbs[index]}g · 脂肪{dailyData.fat[index]}g
                   </Text>
                 )}
               </View>
-              <Text style={[styles.dayCalories, isOver && styles.dayCaloriesOver]}>
-                {hasData ? `${cal}` : '-'}
-              </Text>
-              <Text style={styles.dayUnit}>千卡</Text>
+              <View style={styles.dayRight}>
+                <Text style={[styles.dayCalories, isOver && styles.dayCaloriesOver]}>
+                  {hasData ? `${cal}` : '-'}
+                </Text>
+                <Text style={styles.dayUnit}>千卡</Text>
+              </View>
             </View>
             {hasData && (
               <View style={styles.dayBar}>
@@ -419,6 +559,50 @@ const styles = StyleSheet.create({
     color: '#999999',
   },
 
+  // 饮食洞察
+  insightCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  insightTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 12,
+  },
+  insightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  insightItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginHorizontal: 4,
+  },
+  insightIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  insightValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 2,
+  },
+  insightLabel: {
+    fontSize: 11,
+    color: '#666666',
+  },
+
   // 章节标题
   sectionTitle: {
     fontSize: 18,
@@ -487,6 +671,70 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
 
+  // 餐次分布
+  mealDistCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  mealDistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  mealDistLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 70,
+  },
+  mealDistIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  mealDistIconText: {
+    fontSize: 14,
+  },
+  mealDistLabel: {
+    fontSize: 13,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  mealDistBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginHorizontal: 8,
+  },
+  mealDistBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  mealDistRight: {
+    alignItems: 'flex-end',
+    width: 70,
+  },
+  mealDistCal: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  mealDistPct: {
+    fontSize: 11,
+    color: '#999999',
+  },
+
   // 每日记录
   dayCard: {
     backgroundColor: '#FFFFFF',
@@ -499,6 +747,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
+  dayCardHighest: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF6B6B',
+  },
+  dayCardLowest: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
   dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -506,21 +762,37 @@ const styles = StyleSheet.create({
   dayLeft: {
     flex: 1,
   },
+  dayDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   dayDate: {
     fontSize: 14,
     fontWeight: '600',
     color: '#333333',
-    marginBottom: 2,
+  },
+  dayBadge: {
+    fontSize: 10,
+    color: '#FF6B6B',
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+    overflow: 'hidden',
   },
   dayNutrients: {
     fontSize: 11,
     color: '#999999',
   },
+  dayRight: {
+    alignItems: 'flex-end',
+  },
   dayCalories: {
     fontSize: 16,
     fontWeight: '700',
     color: '#4ECDC4',
-    marginRight: 4,
   },
   dayCaloriesOver: {
     color: '#FF6B6B',
