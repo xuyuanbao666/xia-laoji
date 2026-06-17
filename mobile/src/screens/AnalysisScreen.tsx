@@ -414,70 +414,130 @@ const AnalysisScreen: React.FC = () => {
 
       {/* 每日详情 */}
       <Text style={styles.sectionTitle}>📅 每日记录</Text>
-      {dailyData.dates.map((date, index) => {
-        const cal = calories[index];
-        const hasData = cal > 0;
-        const percentage = hasData ? Math.min((cal / calorieGoal) * 100, 100) : 0;
-        const isOver = cal > calorieGoal;
 
-        // 格式化日期显示
-        const dateObj = new Date(date + 'T00:00:00');
-        const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-        const dateDisplay = reportType === 'day'
-          ? `${dateObj.getMonth() + 1}月${dateObj.getDate()}日 ${weekdays[dateObj.getDay()]}`
-          : reportType === 'week'
-            ? weekdays[dateObj.getDay()]
-            : `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-
-        // 判断是否是最高/最低日
-        const isHighest = highestDay && highestDay.index === index;
-        const isLowest = lowestDay && lowestDay.index === index;
-
-        return (
-          <View
-            key={date}
-            style={[
-              styles.dayCard,
-              isHighest && styles.dayCardHighest,
-              isLowest && styles.dayCardLowest,
-            ]}
-          >
-            <View style={styles.dayHeader}>
-              <View style={styles.dayLeft}>
-                <View style={styles.dayDateRow}>
-                  <Text style={styles.dayDate}>{dateDisplay}</Text>
-                  {isHighest && <Text style={styles.dayBadge}>📈 最高</Text>}
-                  {isLowest && <Text style={[styles.dayBadge, { backgroundColor: '#E8F5E9', color: '#4CAF50' }]}>📉 最低</Text>}
-                </View>
-                {hasData && (
-                  <Text style={styles.dayNutrients}>
-                    蛋白{dailyData.protein[index]}g · 碳水{dailyData.carbs[index]}g · 脂肪{dailyData.fat[index]}g
-                  </Text>
-                )}
-              </View>
-              <View style={styles.dayRight}>
-                <Text style={[styles.dayCalories, isOver && styles.dayCaloriesOver]}>
-                  {hasData ? `${cal}` : '-'}
-                </Text>
-                <Text style={styles.dayUnit}>千卡</Text>
-              </View>
-            </View>
-            {hasData && (
-              <View style={styles.dayBar}>
-                <View
-                  style={[
-                    styles.dayBarFill,
-                    {
-                      width: `${percentage}%`,
-                      backgroundColor: isOver ? '#FF6B6B' : '#4ECDC4',
-                    },
-                  ]}
-                />
-              </View>
-            )}
+      {/* 月报用网格日历视图 */}
+      {reportType === 'month' ? (
+        <View style={styles.calendarCard}>
+          {/* 星期标题 */}
+          <View style={styles.calHeaderRow}>
+            {['日', '一', '二', '三', '四', '五', '六'].map((d) => (
+              <Text key={d} style={styles.calHeaderText}>{d}</Text>
+            ))}
           </View>
-        );
-      })}
+          {/* 日期网格 */}
+          <View style={styles.calGrid}>
+            {dailyData.dates.map((date, index) => {
+              const cal = calories[index];
+              const hasData = cal > 0;
+              const isOver = cal > calorieGoal;
+              const dateObj = new Date(date + 'T00:00:00');
+              const dayNum = dateObj.getDate();
+              const isToday = date === new Date().toISOString().split('T')[0];
+
+              return (
+                <View key={date} style={styles.calCell}>
+                  <View
+                    style={[
+                      styles.calDay,
+                      isToday && styles.calDayToday,
+                      hasData && isOver && styles.calDayOver,
+                      hasData && !isOver && styles.calDayUnder,
+                    ]}
+                  >
+                    <Text style={[styles.calDayNum, isToday && styles.calDayNumToday]}>
+                      {dayNum}
+                    </Text>
+                    {hasData ? (
+                      <Text style={[styles.calDayCal, isOver && styles.calDayCalOver]}>
+                        {cal}
+                      </Text>
+                    ) : (
+                      <Text style={styles.calDayEmpty}>-</Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+          {/* 图例 */}
+          <View style={styles.calLegend}>
+            <View style={styles.calLegendItem}>
+              <View style={[styles.calLegendDot, { backgroundColor: '#4ECDC4' }]} />
+              <Text style={styles.calLegendText}>达标</Text>
+            </View>
+            <View style={styles.calLegendItem}>
+              <View style={[styles.calLegendDot, { backgroundColor: '#FF6B6B' }]} />
+              <Text style={styles.calLegendText}>超标</Text>
+            </View>
+            <View style={styles.calLegendItem}>
+              <View style={[styles.calLegendDot, { backgroundColor: '#F0F0F0' }]} />
+              <Text style={styles.calLegendText}>无记录</Text>
+            </View>
+          </View>
+        </View>
+      ) : (
+        /* 日报/周报用列表视图 */
+        dailyData.dates.map((date, index) => {
+          const cal = calories[index];
+          const hasData = cal > 0;
+          const percentage = hasData ? Math.min((cal / calorieGoal) * 100, 100) : 0;
+          const isOver = cal > calorieGoal;
+
+          const dateObj = new Date(date + 'T00:00:00');
+          const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+          const dateDisplay = reportType === 'day'
+            ? `${dateObj.getMonth() + 1}月${dateObj.getDate()}日 ${weekdays[dateObj.getDay()]}`
+            : weekdays[dateObj.getDay()];
+
+          const isHighest = highestDay && highestDay.index === index;
+          const isLowest = lowestDay && lowestDay.index === index;
+
+          return (
+            <View
+              key={date}
+              style={[
+                styles.dayCard,
+                isHighest && styles.dayCardHighest,
+                isLowest && styles.dayCardLowest,
+              ]}
+            >
+              <View style={styles.dayHeader}>
+                <View style={styles.dayLeft}>
+                  <View style={styles.dayDateRow}>
+                    <Text style={styles.dayDate}>{dateDisplay}</Text>
+                    {isHighest && <Text style={styles.dayBadge}>📈 最高</Text>}
+                    {isLowest && <Text style={[styles.dayBadge, { backgroundColor: '#E8F5E9', color: '#4CAF50' }]}>📉 最低</Text>}
+                  </View>
+                  {hasData && (
+                    <Text style={styles.dayNutrients}>
+                      蛋白{dailyData.protein[index]}g · 碳水{dailyData.carbs[index]}g · 脂肪{dailyData.fat[index]}g
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.dayRight}>
+                  <Text style={[styles.dayCalories, isOver && styles.dayCaloriesOver]}>
+                    {hasData ? `${cal}` : '-'}
+                  </Text>
+                  <Text style={styles.dayUnit}>千卡</Text>
+                </View>
+              </View>
+              {hasData && (
+                <View style={styles.dayBar}>
+                  <View
+                    style={[
+                      styles.dayBarFill,
+                      {
+                        width: `${percentage}%`,
+                        backgroundColor: isOver ? '#FF6B6B' : '#4ECDC4',
+                      },
+                    ]}
+                  />
+                </View>
+              )}
+            </View>
+          );
+        })
+      )}
 
       {/* 底部间距 */}
       <View style={styles.bottomSpacing} />
@@ -827,6 +887,100 @@ const styles = StyleSheet.create({
   dayBarFill: {
     height: '100%',
     borderRadius: 3,
+  },
+
+  // 网格日历
+  calendarCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  calHeaderRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  calHeaderText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#999999',
+  },
+  calGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calCell: {
+    width: '14.28%',
+    aspectRatio: 1,
+    padding: 2,
+  },
+  calDay: {
+    flex: 1,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+  },
+  calDayToday: {
+    borderWidth: 2,
+    borderColor: '#FF6B6B',
+  },
+  calDayOver: {
+    backgroundColor: '#FFE4E1',
+  },
+  calDayUnder: {
+    backgroundColor: '#E8F5E9',
+  },
+  calDayNum: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 2,
+  },
+  calDayNumToday: {
+    color: '#FF6B6B',
+  },
+  calDayCal: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#4ECDC4',
+  },
+  calDayCalOver: {
+    color: '#FF6B6B',
+  },
+  calDayEmpty: {
+    fontSize: 9,
+    color: '#CCCCCC',
+  },
+  calLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+  },
+  calLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 10,
+  },
+  calLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  calLegendText: {
+    fontSize: 11,
+    color: '#666666',
   },
 
   bottomSpacing: {
