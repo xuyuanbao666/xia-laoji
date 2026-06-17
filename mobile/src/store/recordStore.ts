@@ -45,16 +45,13 @@ export const useRecordStore = create<RecordState>((set, get) => ({
   createRecord: async (data: CreateRecordRequest) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('=== Creating Record ===', JSON.stringify(data, null, 2));
       const record = await recordService.createRecord(data);
-      console.log('=== Record Created ===', JSON.stringify(record, null, 2));
       // 重新加载当天的摘要
       const { selectedDate } = get();
       await get().loadDailySummary(selectedDate);
       set({ isLoading: false });
       return record;
     } catch (error: any) {
-      console.log('=== Create Record Error ===', error.message, error.response?.data);
       const message = error.response?.data?.message || '创建记录失败';
       set({ error: message, isLoading: false });
       throw error;
@@ -114,7 +111,6 @@ export const useRecordStore = create<RecordState>((set, get) => ({
     try {
       const result = await recordService.getDailySummary(date);
       const data = result.data || result;
-      console.log('=== Daily Summary Raw Data ===', JSON.stringify(data, null, 2));
 
       // 后端 meals 是数组 [{meal: 'breakfast', records: [...], totalNutrition: {...}}, ...]
       // 前端需要对象 { breakfast: { foods: [...], totalNutrition: {...} }, ... }
@@ -154,8 +150,6 @@ export const useRecordStore = create<RecordState>((set, get) => ({
         });
       }
 
-      console.log('=== Converted Meals Obj ===', JSON.stringify(mealsObj, null, 2));
-
       // 转换后端格式为前端格式（四舍五入）
       const round = (n: number) => Math.round(n * 10) / 10;
       const summary = {
@@ -170,7 +164,6 @@ export const useRecordStore = create<RecordState>((set, get) => ({
         isLoading: false,
       });
     } catch (error: any) {
-      console.log('=== Daily Summary Error ===', error.message);
       const message = error.response?.data?.message || '加载每日摘要失败';
       set({ error: message, isLoading: false });
     }

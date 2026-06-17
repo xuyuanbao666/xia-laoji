@@ -106,15 +106,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateProfile: async (data: Partial<User>) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('=== Update Profile Data ===', JSON.stringify(data, null, 2));
       const user = await authService.updateProfile(data as any);
-      console.log('=== Update Profile Result ===', JSON.stringify(user, null, 2));
       set({
         user,
         isLoading: false,
       });
     } catch (error: any) {
-      console.log('=== Update Profile Error ===', error.message, error.response?.data);
       const message = error.response?.data?.error?.message || error.response?.data?.message || '更新失败，请重试';
       set({ error: message, isLoading: false });
       throw error;

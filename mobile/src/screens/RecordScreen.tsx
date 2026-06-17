@@ -218,7 +218,6 @@ const RecordScreen: React.FC = () => {
       setSelectedFood(null);
       setServings('1');
     } catch (error: any) {
-      console.log('Add food error:', error);
       const message = error?.response?.data?.message || error?.message || '添加失败，请重试';
       Alert.alert('错误', message);
     }

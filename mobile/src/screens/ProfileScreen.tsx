@@ -132,7 +132,6 @@ const ProfileScreen: React.FC = () => {
       setShowEditModal(false);
       Alert.alert('成功', '个人资料已更新');
     } catch (error: any) {
-      console.log('Update profile error:', error);
       const message = error?.response?.data?.message || error?.message || '更新失败，请重试';
       Alert.alert('错误', message);
     }
