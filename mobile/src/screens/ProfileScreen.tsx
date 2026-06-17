@@ -8,8 +8,10 @@ import {
   Alert,
   TextInput,
   Modal,
+  Share,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useAuthStore } from '../store/authStore';
 import { useRecordStore } from '../store/recordStore';
 import { useFoodStore } from '../store/foodStore';
@@ -130,27 +132,64 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  // 导出数据
-  const handleExport = () => {
-    const exportData = records.map((r) => ({
-      date: r.date,
-      meal: r.meal,
-      foods: r.foods.map((f) => `${f.name} ${f.amount}g`).join(', '),
-      calories: r.totalNutrition?.calories || 0,
-      protein: r.totalNutrition?.protein || 0,
-      carbs: r.totalNutrition?.carbs || 0,
-      fat: r.totalNutrition?.fat || 0,
-    }));
+  // 导出格式
+  const [exportFormat, setExportFormat] = useState<'text' | 'csv' | 'json'>('text');
 
-    const text = exportData.map((r) =>
-      `${r.date} | ${r.meal} | ${r.foods} | ${r.calories}千卡 | 蛋白${r.protein}g 碳水${r.carbs}g 脂肪${r.fat}g`
-    ).join('\n');
+  // 生成导出数据
+  const generateExportData = (format: 'text' | 'csv' | 'json') => {
+    const mealLabels: Record<string, string> = {
+      breakfast: '早餐',
+      lunch: '午餐',
+      dinner: '晚餐',
+      snack: '加餐',
+    };
 
-    Alert.alert(
-      '导出数据',
-      `共 ${exportData.length} 条记录\n\n${text.substring(0, 500)}${text.length > 500 ? '\n...' : ''}`,
-      [{ text: '确定' }]
-    );
+    if (format === 'json') {
+      return JSON.stringify(records.map((r) => ({
+        日期: r.date,
+        餐次: mealLabels[r.meal] || r.meal,
+        食物: r.foods.map((f) => ({ 名称: f.name, 重量: `${f.amount}g` })),
+        热量千卡: Math.round(r.totalNutrition?.calories || 0),
+        蛋白质g: Math.round((r.totalNutrition?.protein || 0) * 10) / 10,
+        碳水g: Math.round((r.totalNutrition?.carbs || 0) * 10) / 10,
+        脂肪g: Math.round((r.totalNutrition?.fat || 0) * 10) / 10,
+      })), null, 2);
+    }
+
+    if (format === 'csv') {
+      const header = '日期,餐次,食物,热量(千卡),蛋白质(g),碳水(g),脂肪(g)';
+      const rows = records.map((r) => {
+        const foods = r.foods.map((f) => `${f.name} ${f.amount}g`).join('+');
+        return `${r.date},${mealLabels[r.meal] || r.meal},"${foods}",${Math.round(r.totalNutrition?.calories || 0)},${Math.round((r.totalNutrition?.protein || 0) * 10) / 10},${Math.round((r.totalNutrition?.carbs || 0) * 10) / 10},${Math.round((r.totalNutrition?.fat || 0) * 10) / 10}`;
+      });
+      return header + '\n' + rows.join('\n');
+    }
+
+    // 默认文本格式
+    return records.map((r) => {
+      const foods = r.foods.map((f) => `${f.name} ${f.amount}g`).join(', ');
+      return `${r.date} ${mealLabels[r.meal] || r.meal}\n  ${foods}\n  ${Math.round(r.totalNutrition?.calories || 0)}千卡 | 蛋白${Math.round((r.totalNutrition?.protein || 0) * 10) / 10}g 碳水${Math.round((r.totalNutrition?.carbs || 0) * 10) / 10}g 脂肪${Math.round((r.totalNutrition?.fat || 0) * 10) / 10}g`;
+    }).join('\n\n');
+  };
+
+  // 复制到剪贴板
+  const handleCopyToClipboard = () => {
+    const text = generateExportData('text');
+    Clipboard.setString(text);
+    Alert.alert('已复制', `已复制 ${records.length} 条记录到剪贴板`);
+  };
+
+  // 系统分享
+  const handleShare = async () => {
+    const text = generateExportData(exportFormat);
+    try {
+      await Share.share({
+        message: `🦐 虾牢记饮食记录\n\n${text}`,
+        title: '饮食记录导出',
+      });
+    } catch (error) {
+      // 用户取消分享
+    }
   };
 
   // 删除收藏
@@ -555,13 +594,50 @@ const ProfileScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalContent}>
+              {/* 统计信息 */}
               <View style={styles.exportInfo}>
+                <Text style={styles.exportStatsTitle}>📊 导出概览</Text>
                 <Text style={styles.exportStats}>共 {records.length} 条饮食记录</Text>
                 <Text style={styles.exportStats}>涵盖 {uniqueDays} 天</Text>
               </View>
-              <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
-                <Text style={styles.exportBtnIcon}>📋</Text>
-                <Text style={styles.exportBtnText}>复制数据到剪贴板</Text>
+
+              {/* 格式选择 */}
+              <Text style={styles.exportLabel}>选择导出格式</Text>
+              <View style={styles.exportFormatRow}>
+                {[
+                  { key: 'text', label: '📝 文本', desc: '易读格式' },
+                  { key: 'csv', label: '📊 CSV', desc: 'Excel可用' },
+                  { key: 'json', label: '💻 JSON', desc: '数据格式' },
+                ].map((format) => (
+                  <TouchableOpacity
+                    key={format.key}
+                    style={[styles.exportFormatBtn, exportFormat === format.key && styles.exportFormatBtnActive]}
+                    onPress={() => setExportFormat(format.key as any)}
+                  >
+                    <Text style={[styles.exportFormatLabel, exportFormat === format.key && styles.exportFormatLabelActive]}>
+                      {format.label}
+                    </Text>
+                    <Text style={styles.exportFormatDesc}>{format.desc}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 预览 */}
+              <Text style={styles.exportLabel}>预览</Text>
+              <View style={styles.exportPreview}>
+                <Text style={styles.exportPreviewText} numberOfLines={6}>
+                  {generateExportData(exportFormat).substring(0, 300)}...
+                </Text>
+              </View>
+
+              {/* 操作按钮 */}
+              <TouchableOpacity style={styles.exportShareBtn} onPress={handleShare}>
+                <Text style={styles.exportShareBtnIcon}>🔗</Text>
+                <Text style={styles.exportShareBtnText}>分享到其他应用</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.exportCopyBtn} onPress={handleCopyToClipboard}>
+                <Text style={styles.exportCopyBtnIcon}>📋</Text>
+                <Text style={styles.exportCopyBtnText}>复制到剪贴板</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -668,11 +744,24 @@ const styles = StyleSheet.create({
   favAddBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
 
   // 导出
-  exportInfo: { alignItems: 'center', marginBottom: 20, paddingVertical: 16, backgroundColor: '#F8F8F8', borderRadius: 12 },
-  exportStats: { fontSize: 15, color: '#333333', marginBottom: 4 },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, backgroundColor: '#FF6B6B', borderRadius: 12 },
-  exportBtnIcon: { fontSize: 18, marginRight: 8 },
-  exportBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  exportInfo: { marginBottom: 16, padding: 16, backgroundColor: '#F8F8F8', borderRadius: 12 },
+  exportStatsTitle: { fontSize: 15, fontWeight: '700', color: '#333333', marginBottom: 8 },
+  exportStats: { fontSize: 13, color: '#666666', marginBottom: 2 },
+  exportLabel: { fontSize: 14, fontWeight: '600', color: '#333333', marginBottom: 10, marginTop: 8 },
+  exportFormatRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  exportFormatBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: '#F5F5F5', borderRadius: 12, marginHorizontal: 4 },
+  exportFormatBtnActive: { backgroundColor: '#FF6B6B' },
+  exportFormatLabel: { fontSize: 14, fontWeight: '600', color: '#666666', marginBottom: 2 },
+  exportFormatLabelActive: { color: '#FFFFFF' },
+  exportFormatDesc: { fontSize: 10, color: '#999999' },
+  exportPreview: { backgroundColor: '#F8F8F8', borderRadius: 12, padding: 12, marginBottom: 16 },
+  exportPreviewText: { fontSize: 11, color: '#666666', lineHeight: 16 },
+  exportShareBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, backgroundColor: '#4ECDC4', borderRadius: 12, marginBottom: 10 },
+  exportShareBtnIcon: { fontSize: 18, marginRight: 8 },
+  exportShareBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  exportCopyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, backgroundColor: '#FF6B6B', borderRadius: 12 },
+  exportCopyBtnIcon: { fontSize: 18, marginRight: 8 },
+  exportCopyBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 });
 
 export default ProfileScreen;
