@@ -4,12 +4,17 @@ import dns from 'dns';
 // 强制使用 IPv4
 dns.setDefaultResultOrder('ipv4first');
 
-// QQ邮箱 SMTP 配置
+// QQ邮箱 SMTP 配置 - 使用端口 587 (STARTTLS)
 const transporter = nodemailer.createTransport({
-  service: 'qq',
+  host: 'smtp.qq.com',
+  port: 587,
+  secure: false, // 使用 STARTTLS
   auth: {
     user: '428738807@qq.com',
     pass: 'zjtlcblnqyozbged', // 授权码
+  },
+  tls: {
+    rejectUnauthorized: false,
   },
 });
 
