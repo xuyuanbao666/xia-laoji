@@ -1,19 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useFoodStore } from '../store/foodStore';
 import { useRecordStore } from '../store/recordStore';
 import { Food, CreateRecordRequest } from '../types';
 import { Card, Button, Input } from '../components/common';
+import CollapsibleSection from '../components/CollapsibleSection';
 
 /**
  * 记录页 - 搜索食物并添加到饮食记录
@@ -21,19 +23,60 @@ import { Card, Button, Input } from '../components/common';
 const RecordScreen: React.FC = () => {
   const route = useRoute<any>();
   const navigation = useNavigation();
-  const { searchResults, isLoading, searchFoods, clearSearch } = useFoodStore();
-  const { createRecord, selectedDate } = useRecordStore();
+  const { searchResults, isLoading, searchFoods } = useFoodStore();
+  const { createRecord, selectedDate, dailySummary, loadDailySummary } = useRecordStore();
 
   // 搜索关键词
   const [keyword, setKeyword] = useState('');
   // 选择的餐次
   const [mealType, setMealType] = useState<CreateRecordRequest['meal']>(
-    route.params?.mealType || 'breakfast'
+    (globalThis as any).selectedMealType || route.params?.mealType || 'breakfast'
   );
+  // 搜索结果是否展开
+  const [isResultsExpanded, setIsResultsExpanded] = useState(false);
+  // 历史记录是否展开
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  // 历史记录
+  const [history, setHistory] = useState<Food[]>([]);
   // 选中的食物
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   // 份数
   const [servings, setServings] = useState('1');
+
+  // 当页面获得焦点时，检查是否有新的餐次参数
+  useFocusEffect(
+    useCallback(() => {
+      const globalMeal = (globalThis as any).selectedMealType;
+      if (globalMeal) {
+        setMealType(globalMeal);
+        (globalThis as any).selectedMealType = null;
+      }
+      // 加载历史记录和今日摘要
+      loadHistory();
+      loadDailySummary(selectedDate);
+    }, [selectedDate])
+  );
+
+  // 加载历史记录
+  const loadHistory = async () => {
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const saved = await AsyncStorage.getItem('food_history');
+      if (saved) {
+        setHistory(JSON.parse(saved));
+      }
+    } catch (e) {}
+  };
+
+  // 保存到历史记录
+  const saveToHistory = async (food: Food) => {
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const newHistory = [food, ...history.filter(h => h._id !== food._id)].slice(0, 10);
+      setHistory(newHistory);
+      await AsyncStorage.setItem('food_history', JSON.stringify(newHistory));
+    } catch (e) {}
+  };
 
   // 餐次选项
   const mealTypes = [
@@ -47,6 +90,7 @@ const RecordScreen: React.FC = () => {
   const handleSearch = useCallback(() => {
     if (keyword.trim()) {
       searchFoods(keyword.trim());
+      setIsResultsExpanded(true);
     }
   }, [keyword, searchFoods]);
 
@@ -54,6 +98,8 @@ const RecordScreen: React.FC = () => {
   const handleSelectFood = (food: Food) => {
     setSelectedFood(food);
     setServings('1');
+    setIsResultsExpanded(false);
+    saveToHistory(food);
   };
 
   // 添加食物到记录
@@ -86,32 +132,12 @@ const RecordScreen: React.FC = () => {
     }
   };
 
-  // 渲染搜索结果项
-  const renderFoodItem = ({ item }: { item: Food }) => (
-    <TouchableOpacity
-      style={[
-        styles.foodItem,
-        selectedFood?._id === item._id && styles.foodItemSelected,
-      ]}
-      onPress={() => handleSelectFood(item)}
-    >
-      <View style={styles.foodInfo}>
-        <Text style={styles.foodName}>{item.nameZh}</Text>
-        <Text style={styles.foodCategory}>{item.category}</Text>
-      </View>
-      <View style={styles.foodCalories}>
-        <Text style={styles.caloriesValue}>{item.nutrition.calories}</Text>
-        <Text style={styles.caloriesUnit}>kcal/{item.servingName}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.content}>
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* 搜索框 */}
         <View style={styles.searchContainer}>
           <Input
@@ -120,9 +146,91 @@ const RecordScreen: React.FC = () => {
             onChangeText={setKeyword}
             onSubmitEditing={handleSearch}
             returnKeyType="search"
+            style={styles.searchInput}
           />
           <Button title="搜索" onPress={handleSearch} style={styles.searchButton} />
         </View>
+
+        {/* 搜索结果收纳条 */}
+        {searchResults.length > 0 && (
+          <TouchableOpacity
+            style={styles.resultsToggle}
+            onPress={() => setIsResultsExpanded(!isResultsExpanded)}
+          >
+            <Text style={styles.resultsToggleText}>
+              搜索结果 ({searchResults.length})
+            </Text>
+            <Text style={styles.resultsToggleIcon}>
+              {isResultsExpanded ? '▼' : '▶'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* 展开的搜索结果列表 */}
+        {isResultsExpanded && searchResults.length > 0 && (
+          <View style={styles.resultsList}>
+            {searchResults.map((item) => (
+              <TouchableOpacity
+                key={item._id}
+                style={[
+                  styles.foodItem,
+                  selectedFood?._id === item._id && styles.foodItemSelected,
+                ]}
+                onPress={() => handleSelectFood(item)}
+              >
+                <View style={styles.foodInfo}>
+                  <Text style={styles.foodName}>{item.nameZh}</Text>
+                  <Text style={styles.foodCategory}>{item.category}</Text>
+                </View>
+                <View style={styles.foodCalories}>
+                  <Text style={styles.caloriesValue}>{item.nutrition.calories}</Text>
+                  <Text style={styles.caloriesUnit}>kcal/{item.servingName}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* 历史记录收纳条 */}
+        {history.length > 0 && (
+          <>
+            <TouchableOpacity
+              style={styles.resultsToggle}
+              onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
+            >
+              <Text style={styles.resultsToggleText}>
+                常用食物 ({history.length})
+              </Text>
+              <Text style={styles.resultsToggleIcon}>
+                {isHistoryExpanded ? '▼' : '▶'}
+              </Text>
+            </TouchableOpacity>
+
+            {isHistoryExpanded && (
+              <View style={styles.resultsList}>
+                {history.map((item) => (
+                  <TouchableOpacity
+                    key={item._id}
+                    style={[
+                      styles.foodItem,
+                      selectedFood?._id === item._id && styles.foodItemSelected,
+                    ]}
+                    onPress={() => handleSelectFood(item)}
+                  >
+                    <View style={styles.foodInfo}>
+                      <Text style={styles.foodName}>{item.nameZh}</Text>
+                      <Text style={styles.foodCategory}>{item.category}</Text>
+                    </View>
+                    <View style={styles.foodCalories}>
+                      <Text style={styles.caloriesValue}>{item.nutrition.calories}</Text>
+                      <Text style={styles.caloriesUnit}>kcal/{item.servingName}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </>
+        )}
 
         {/* 餐次选择 */}
         <Text style={styles.sectionTitle}>选择餐次</Text>
@@ -149,25 +257,11 @@ const RecordScreen: React.FC = () => {
           ))}
         </View>
 
-        {/* 搜索结果列表 */}
-        <Text style={styles.sectionTitle}>搜索结果</Text>
-        <FlatList
-          data={searchResults}
-          renderItem={renderFoodItem}
-          keyExtractor={(item) => item._id}
-          style={styles.list}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              {keyword ? '没有找到相关食物' : '输入关键词搜索食物'}
-            </Text>
-          }
-        />
-
         {/* 选中食物后的添加面板 */}
         {selectedFood && (
           <Card style={styles.selectedPanel}>
             <View style={styles.selectedHeader}>
-              <Text style={styles.selectedName}>{selectedFood.name}</Text>
+              <Text style={styles.selectedName}>{selectedFood.nameZh}</Text>
               <TouchableOpacity onPress={() => setSelectedFood(null)}>
                 <Text style={styles.closeButton}>✕</Text>
               </TouchableOpacity>
@@ -197,7 +291,60 @@ const RecordScreen: React.FC = () => {
             />
           </Card>
         )}
-      </View>
+
+        {/* 今日餐次概览 */}
+        <CollapsibleSection title="🍽️ 今日餐次" defaultExpanded={true}>
+          {(['breakfast', 'lunch', 'dinner', 'snack'] as CreateRecordRequest['meal'][]).map((meal) => {
+            const mealData = dailySummary?.meals?.[meal];
+            const hasFood = mealData && mealData.foods && mealData.foods.length > 0;
+            if (!hasFood) {
+              return (
+                <View key={meal} style={styles.mealOverviewRow}>
+                  <Text style={styles.mealOverviewLabel}>
+                    {mealTypes.find(m => m.key === meal)?.icon}{' '}
+                    {mealTypes.find(m => m.key === meal)?.label}
+                  </Text>
+                  <Text style={styles.mealOverviewEmpty}>暂无记录</Text>
+                </View>
+              );
+            }
+            // 合并同名食物
+            const merged: Record<string, any> = {};
+            mealData.foods.forEach((f: any) => {
+              const key = f.nameZh || f.name || '';
+              if (merged[key]) {
+                merged[key].amount += f.amount || 0;
+              } else {
+                merged[key] = { ...f, nameZh: f.nameZh || f.name, amount: f.amount || 0 };
+              }
+            });
+            const mergedFoods = Object.values(merged);
+            return (
+              <View key={meal} style={styles.mealOverviewBlock}>
+                <View style={styles.mealOverviewHeader}>
+                  <Text style={styles.mealOverviewLabel}>
+                    {mealTypes.find(m => m.key === meal)?.icon}{' '}
+                    {mealTypes.find(m => m.key === meal)?.label}
+                  </Text>
+                  <Text style={styles.mealOverviewCalories}>
+                    {Math.round(mealData.totalNutrition?.calories || 0)} 千卡
+                  </Text>
+                </View>
+                {mergedFoods.map((food: any, index: number) => (
+                  <View key={index} style={styles.mealFoodRow}>
+                    <Text style={styles.mealFoodName} numberOfLines={1}>
+                      {food.nameZh || food.name}
+                    </Text>
+                    <Text style={styles.mealFoodAmount}>
+                      {food.amount ? `${food.amount}${food.unit || 'g'}` : ''}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })}
+        </CollapsibleSection>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -214,13 +361,84 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
   },
   searchButton: {
     marginLeft: 8,
     width: 80,
     height: 48,
   },
+  // 搜索结果收纳条
+  resultsToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  resultsToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  resultsToggleIcon: {
+    fontSize: 12,
+    color: '#999999',
+  },
+  // 展开的搜索结果列表
+  resultsList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    maxHeight: 200,
+  },
+  foodItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  foodItemSelected: {
+    backgroundColor: '#FFF8F8',
+    borderColor: '#FF6B6B',
+  },
+  foodInfo: {
+    flex: 1,
+  },
+  foodName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 2,
+  },
+  foodCategory: {
+    fontSize: 12,
+    color: '#999999',
+  },
+  foodCalories: {
+    alignItems: 'flex-end',
+  },
+  caloriesValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FF6B6B',
+  },
+  caloriesUnit: {
+    fontSize: 11,
+    color: '#999999',
+  },
+  // 餐次选择
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -258,55 +476,7 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     fontWeight: '600',
   },
-  list: {
-    flex: 1,
-  },
-  foodItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  foodItemSelected: {
-    borderColor: '#FF6B6B',
-    backgroundColor: '#FFF8F8',
-  },
-  foodInfo: {
-    flex: 1,
-  },
-  foodName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 4,
-  },
-  foodCategory: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  foodCalories: {
-    alignItems: 'flex-end',
-  },
-  caloriesValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FF6B6B',
-  },
-  caloriesUnit: {
-    fontSize: 11,
-    color: '#999999',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#CCCCCC',
-    marginTop: 40,
-    fontSize: 14,
-  },
+  // 选中食物面板
   selectedPanel: {
     marginTop: 8,
   },
@@ -357,6 +527,59 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     textAlign: 'center',
     marginBottom: 12,
+  },
+  // 餐次概览
+  mealOverviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFF0F0',
+  },
+  mealOverviewLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+  },
+  mealOverviewEmpty: {
+    fontSize: 12,
+    color: '#CCCCCC',
+  },
+  mealOverviewBlock: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFF0F0',
+  },
+  mealOverviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  mealOverviewCalories: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF6B6B',
+  },
+  mealFoodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingLeft: 16,
+  },
+  mealFoodName: {
+    flex: 1,
+    fontSize: 13,
+    color: '#666666',
+  },
+  mealFoodAmount: {
+    fontSize: 12,
+    color: '#999999',
+    marginLeft: 8,
   },
 });
 

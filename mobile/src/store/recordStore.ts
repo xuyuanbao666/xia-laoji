@@ -45,13 +45,16 @@ export const useRecordStore = create<RecordState>((set, get) => ({
   createRecord: async (data: CreateRecordRequest) => {
     set({ isLoading: true, error: null });
     try {
+      console.log('=== Creating Record ===', JSON.stringify(data, null, 2));
       const record = await recordService.createRecord(data);
+      console.log('=== Record Created ===', JSON.stringify(record, null, 2));
       // 重新加载当天的摘要
       const { selectedDate } = get();
       await get().loadDailySummary(selectedDate);
       set({ isLoading: false });
       return record;
     } catch (error: any) {
+      console.log('=== Create Record Error ===', error.message, error.response?.data);
       const message = error.response?.data?.message || '创建记录失败';
       set({ error: message, isLoading: false });
       throw error;
@@ -109,19 +112,63 @@ export const useRecordStore = create<RecordState>((set, get) => ({
     try {
       const result = await recordService.getDailySummary(date);
       const data = result.data || result;
-      // 转换后端格式为前端格式
+      console.log('=== Daily Summary Raw Data ===', JSON.stringify(data, null, 2));
+
+      // 后端 meals 是数组 [{meal: 'breakfast', records: [...], totalNutrition: {...}}, ...]
+      // 前端需要对象 { breakfast: { foods: [...], totalNutrition: {...} }, ... }
+      const mealsArray = data.meals || [];
+      const mealsObj: Record<string, any> = {};
+      if (Array.isArray(mealsArray)) {
+        mealsArray.forEach((m: any) => {
+          // 每个 record 有 foods 数组，每项是 {foodId: {...}, amount, unit, nutrition}
+          const allFoods: any[] = [];
+          (m.records || []).forEach((r: any) => {
+            (r.foods || []).forEach((f: any) => {
+              allFoods.push({
+                ...(f.foodId || f.food || {}),
+                nameZh: f.foodId?.nameZh || f.food?.nameZh || f.name || '',
+                name: f.foodId?.name || f.food?.name || '',
+                amount: f.amount,
+                unit: f.unit || 'g',
+                nutrition: f.nutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+              });
+            });
+          });
+          // 四舍五入营养素
+          const round = (n: number) => Math.round(n * 10) / 10;
+          mealsObj[m.meal] = {
+            foods: allFoods,
+            totalCalories: Math.round(m.totalNutrition?.calories || 0),
+            totalProtein: round(m.totalNutrition?.protein || 0),
+            totalCarbs: round(m.totalNutrition?.carbs || 0),
+            totalFat: round(m.totalNutrition?.fat || 0),
+            totalNutrition: {
+              calories: Math.round(m.totalNutrition?.calories || 0),
+              protein: round(m.totalNutrition?.protein || 0),
+              carbs: round(m.totalNutrition?.carbs || 0),
+              fat: round(m.totalNutrition?.fat || 0),
+            },
+          };
+        });
+      }
+
+      console.log('=== Converted Meals Obj ===', JSON.stringify(mealsObj, null, 2));
+
+      // 转换后端格式为前端格式（四舍五入）
+      const round = (n: number) => Math.round(n * 10) / 10;
       const summary = {
-        totalCalories: data.totalNutrition?.calories || data.totalCalories || 0,
-        totalProtein: data.totalNutrition?.protein || data.totalProtein || 0,
-        totalCarbs: data.totalNutrition?.carbs || data.totalCarbs || 0,
-        totalFat: data.totalNutrition?.fat || data.totalFat || 0,
-        meals: data.meals || {},
+        totalCalories: Math.round(data.totalNutrition?.calories || data.totalCalories || 0),
+        totalProtein: round(data.totalNutrition?.protein || data.totalProtein || 0),
+        totalCarbs: round(data.totalNutrition?.carbs || data.totalCarbs || 0),
+        totalFat: round(data.totalNutrition?.fat || data.totalFat || 0),
+        meals: mealsObj,
       };
       set({
         dailySummary: summary,
         isLoading: false,
       });
     } catch (error: any) {
+      console.log('=== Daily Summary Error ===', error.message);
       const message = error.response?.data?.message || '加载每日摘要失败';
       set({ error: message, isLoading: false });
     }

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRecordStore } from '../store/recordStore';
 import { useAuthStore } from '../store/authStore';
 import { CalorieProgress } from '../components/nutrition';
@@ -20,13 +21,16 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const { dailySummary, loadDailySummary, selectedDate, isLoading } = useRecordStore();
+  const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
 
   // 今天的日期
   const today = new Date().toISOString().split('T')[0];
 
-  useEffect(() => {
-    loadDailySummary(today);
-  }, [today, loadDailySummary]);
+  useFocusEffect(
+    useCallback(() => {
+      loadDailySummary(today);
+    }, [today, loadDailySummary])
+  );
 
   const onRefresh = useCallback(() => {
     loadDailySummary(today);
@@ -39,12 +43,13 @@ const HomeScreen: React.FC = () => {
   const mealsData = dailySummary?.meals || {};
   const getMealData = (mealKey: string) => {
     const meal = mealsData[mealKey];
+    const round = (n: number) => Math.round(n * 10) / 10;
     return {
-      calories: meal?.totalCalories || 0,
+      calories: Math.round(meal?.totalCalories || 0),
       recordCount: meal?.foods?.length || 0,
-      protein: meal?.foods?.reduce((sum: number, f: any) => sum + (f.nutrition?.protein || 0), 0) || 0,
-      carbs: meal?.foods?.reduce((sum: number, f: any) => sum + (f.nutrition?.carbs || 0), 0) || 0,
-      fat: meal?.foods?.reduce((sum: number, f: any) => sum + (f.nutrition?.fat || 0), 0) || 0,
+      protein: round(meal?.foods?.reduce((sum: number, f: any) => sum + (f.nutrition?.protein || 0), 0) || 0),
+      carbs: round(meal?.foods?.reduce((sum: number, f: any) => sum + (f.nutrition?.carbs || 0), 0) || 0),
+      fat: round(meal?.foods?.reduce((sum: number, f: any) => sum + (f.nutrition?.fat || 0), 0) || 0),
     };
   };
 
@@ -57,10 +62,40 @@ const HomeScreen: React.FC = () => {
 
   // 快速添加食物
   const handleQuickAdd = (mealType: string) => {
-    navigation.navigate('RecordTab', {
-      screen: 'Record',
-      params: { mealType },
+    // 使用全局状态传递餐次
+    (globalThis as any).selectedMealType = mealType;
+    navigation.navigate('RecordTab');
+  };
+
+  // 切换展开/收起
+  const toggleMeal = (mealKey: string) => {
+    setExpandedMeal(expandedMeal === mealKey ? null : mealKey);
+  };
+
+  // 获取餐次的食物列表（合并同名食物）
+  const getMealFoods = (mealKey: string) => {
+    const meal = mealsData[mealKey];
+    const foods = meal?.foods || [];
+    // 按名称合并同名食物
+    const merged: Record<string, any> = {};
+    foods.forEach((f: any) => {
+      const key = f.nameZh || f.name || '';
+      if (merged[key]) {
+        merged[key].amount += f.amount || 0;
+        merged[key].nutrition.calories += f.nutrition?.calories || 0;
+        merged[key].nutrition.protein += f.nutrition?.protein || 0;
+        merged[key].nutrition.carbs += f.nutrition?.carbs || 0;
+        merged[key].nutrition.fat += f.nutrition?.fat || 0;
+      } else {
+        merged[key] = {
+          ...f,
+          nameZh: f.nameZh || f.name,
+          amount: f.amount || 0,
+          nutrition: { ...f.nutrition },
+        };
+      }
     });
+    return Object.values(merged);
   };
 
   return (
@@ -119,32 +154,56 @@ const HomeScreen: React.FC = () => {
 
       {/* 各餐次记录 */}
       <Text style={styles.sectionTitle}>饮食记录</Text>
-      {meals.map((meal) => (
-        <Card key={meal.key} style={styles.mealCard}>
-          <View style={styles.mealHeader}>
-            <View style={styles.mealTitleRow}>
-              <Text style={styles.mealIcon}>{meal.icon}</Text>
-              <Text style={styles.mealLabel}>{meal.label}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => handleQuickAdd(meal.key)}
-            >
-              <Text style={styles.addButtonText}>+ 添加</Text>
+      {meals.map((meal) => {
+        const isExpanded = expandedMeal === meal.key;
+        const foods = getMealFoods(meal.key);
+        return (
+          <Card key={meal.key} style={styles.mealCard}>
+            <TouchableOpacity onPress={() => toggleMeal(meal.key)}>
+              <View style={styles.mealHeader}>
+                <View style={styles.mealTitleRow}>
+                  <Text style={styles.mealIcon}>{meal.icon}</Text>
+                  <Text style={styles.mealLabel}>{meal.label}</Text>
+                  {meal.data.recordCount > 0 && (
+                    <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => handleQuickAdd(meal.key)}
+                >
+                  <Text style={styles.addButtonText}>+ 添加</Text>
+                </TouchableOpacity>
+              </View>
+              {meal.data.recordCount > 0 ? (
+                <View style={styles.mealStats}>
+                  <Text style={styles.mealCalories}>{meal.data.calories} kcal</Text>
+                  <Text style={styles.mealNutrients}>
+                    蛋白质 {meal.data.protein}g · 碳水 {meal.data.carbs}g · 脂肪 {meal.data.fat}g
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.emptyMeal}>还没有记录，快去添加吧~</Text>
+              )}
             </TouchableOpacity>
-          </View>
-          {meal.data.recordCount > 0 ? (
-            <View style={styles.mealStats}>
-              <Text style={styles.mealCalories}>{meal.data.calories} kcal</Text>
-              <Text style={styles.mealNutrients}>
-                蛋白质 {meal.data.protein}g · 碳水 {meal.data.carbs}g · 脂肪 {meal.data.fat}g
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.emptyMeal}>还没有记录，快去添加吧~</Text>
-          )}
-        </Card>
-      ))}
+            {/* 展开的食物列表 */}
+            {isExpanded && foods.length > 0 && (
+              <View style={styles.foodList}>
+                <View style={styles.foodListHeader}>
+                  <Text style={styles.foodListTitle}>忒牢鸡了以下东西:</Text>
+                </View>
+                {foods.map((food: any, index: number) => (
+                  <View key={index} style={styles.foodItem}>
+                    <Text style={styles.foodName}>{food.nameZh || food.name}</Text>
+                    <Text style={styles.foodAmount}>{food.amount}g</Text>
+                    <Text style={styles.foodCalories}>{Math.round(food.nutrition?.calories || 0)} kcal</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Card>
+        );
+      })}
 
       {/* 底部间距 */}
       <View style={styles.bottomSpacing} />
@@ -251,6 +310,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#CCCCCC',
     marginTop: 8,
+  },
+  expandIcon: {
+    fontSize: 12,
+    color: '#999999',
+    marginLeft: 8,
+  },
+  foodList: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  foodListHeader: {
+    marginBottom: 8,
+  },
+  foodListTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+  },
+  foodItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  foodName: {
+    fontSize: 14,
+    color: '#333333',
+    flex: 1,
+  },
+  foodAmount: {
+    fontSize: 13,
+    color: '#999999',
+    marginRight: 12,
+  },
+  foodCalories: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF6B6B',
   },
   bottomSpacing: {
     height: 20,

@@ -45,17 +45,7 @@ export const getRecords = async (params: {
 export const getDailySummary = async (date: string): Promise<any> => {
   const response = await api.get(`/records/daily/${date}`);
   const result = response.data?.data || response.data;
-  // 转换 meals 格式为前端期望的格式
-  if (result && result.meals) {
-    const mealsMap: any = {};
-    result.meals.forEach((meal: any) => {
-      mealsMap[meal.meal] = {
-        foods: meal.records?.flatMap((r: any) => r.foods) || [],
-        totalCalories: meal.totalNutrition?.calories || 0,
-      };
-    });
-    result.meals = mealsMap;
-  }
+  // 直接返回后端原始数据，格式转换在 store 里统一处理
   return result;
 };
 
