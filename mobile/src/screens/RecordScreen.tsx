@@ -190,6 +190,14 @@ const RecordScreen: React.FC = () => {
 
     const servingsNum = parseFloat(servings) || 1;
     const amount = servingsNum * selectedFood.servingSize;
+
+    // 验证 foodId 是否是有效的 MongoDB ObjectId（24位十六进制字符串）
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(selectedFood._id);
+    if (!isValidObjectId) {
+      Alert.alert('错误', '食物ID无效，请重新搜索食物');
+      return;
+    }
+
     const data = {
       foodId: selectedFood._id,
       foodName: selectedFood.nameZh,
@@ -209,8 +217,10 @@ const RecordScreen: React.FC = () => {
       Alert.alert('成功', `已添加 ${selectedFood.nameZh} 到${mealTypes.find(m => m.key === mealType)?.label}`);
       setSelectedFood(null);
       setServings('1');
-    } catch (error) {
-      Alert.alert('错误', '添加失败，请重试');
+    } catch (error: any) {
+      console.log('Add food error:', error);
+      const message = error?.response?.data?.message || error?.message || '添加失败，请重试';
+      Alert.alert('错误', message);
     }
   };
 

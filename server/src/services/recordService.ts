@@ -34,6 +34,11 @@ export class RecordService {
     // 验证所有食物存在并获取营养信息
     const foodsData = await Promise.all(
       data.foods.map(async (item) => {
+        // 验证 foodId 是否是有效的 ObjectId
+        if (!item.foodId || !item.foodId.match(/^[0-9a-fA-F]{24}$/)) {
+          throw new Error(`Invalid food ID: ${item.foodId}`);
+        }
+
         const food = await Food.findById(item.foodId);
         if (!food) {
           throw new Error(`Food not found: ${item.foodId}`);

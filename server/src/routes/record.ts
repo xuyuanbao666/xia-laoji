@@ -65,7 +65,8 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response, next: N
       data: record,
     });
   } catch (error: any) {
-    if (error.message.startsWith('Food not found')) {
+    console.error('Create record error:', error);
+    if (error.message.startsWith('Food not found') || error.message.startsWith('Invalid food ID')) {
       res.status(404).json({
         success: false,
         message: error.message,

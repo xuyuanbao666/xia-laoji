@@ -180,7 +180,19 @@ class AuthService {
       Object.keys(updates.profile).forEach((key) => {
         const value = (updates.profile as any)[key];
         if (value !== undefined && value !== null && value !== '') {
-          updateOps[`profile.${key}`] = value;
+          // 对于生日字段，确保是有效的日期
+          if (key === 'birthday') {
+            try {
+              const date = new Date(value);
+              if (!isNaN(date.getTime())) {
+                updateOps[`profile.${key}`] = date;
+              }
+            } catch (e) {
+              // 忽略无效日期
+            }
+          } else {
+            updateOps[`profile.${key}`] = value;
+          }
         }
       });
     }

@@ -283,9 +283,11 @@ router.put(
         return;
       }
 
+      // 返回更详细的错误信息
+      const errorMessage = error.message || '更新用户信息失败';
       res.status(500).json({
         error: {
-          message: '更新用户信息失败',
+          message: errorMessage,
         },
       });
     }

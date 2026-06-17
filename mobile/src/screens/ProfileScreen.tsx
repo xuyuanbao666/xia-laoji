@@ -89,14 +89,37 @@ const ProfileScreen: React.FC = () => {
   // 保存个人资料
   const handleSaveProfile = async () => {
     try {
+      // 验证必填字段
+      if (!editData.name.trim()) {
+        Alert.alert('错误', '请输入姓名');
+        return;
+      }
+
+      const height = parseFloat(editData.height);
+      const currentWeight = parseFloat(editData.currentWeight);
+      const targetWeight = parseFloat(editData.targetWeight);
+
+      if (!height || height < 50 || height > 300) {
+        Alert.alert('错误', '请输入有效的身高（50-300cm）');
+        return;
+      }
+      if (!currentWeight || currentWeight < 20 || currentWeight > 500) {
+        Alert.alert('错误', '请输入有效的当前体重（20-500kg）');
+        return;
+      }
+      if (!targetWeight || targetWeight < 20 || targetWeight > 500) {
+        Alert.alert('错误', '请输入有效的目标体重（20-500kg）');
+        return;
+      }
+
       await updateProfile({
         profile: {
-          name: editData.name,
-          height: parseFloat(editData.height) || 0,
-          currentWeight: parseFloat(editData.currentWeight) || 0,
-          targetWeight: parseFloat(editData.targetWeight) || 0,
+          name: editData.name.trim(),
+          height: height,
+          currentWeight: currentWeight,
+          targetWeight: targetWeight,
           gender: user?.profile?.gender || 'other',
-          birthday: user?.profile?.birthday || '',
+          birthday: user?.profile?.birthday || '2000-01-01',
           activityLevel: user?.profile?.activityLevel || 'sedentary',
         },
         goals: {
@@ -108,8 +131,10 @@ const ProfileScreen: React.FC = () => {
       });
       setShowEditModal(false);
       Alert.alert('成功', '个人资料已更新');
-    } catch (error) {
-      Alert.alert('错误', '更新失败，请重试');
+    } catch (error: any) {
+      console.log('Update profile error:', error);
+      const message = error?.response?.data?.message || error?.message || '更新失败，请重试';
+      Alert.alert('错误', message);
     }
   };
 
