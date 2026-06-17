@@ -23,8 +23,9 @@ export const getFoodById = async (id: string): Promise<Food> => {
  * 获取收藏食物列表
  */
 export const getFavorites = async (): Promise<Food[]> => {
-  const response = await api.get<Food[]>('/foods/favorites');
-  return response.data;
+  const response = await api.get('/foods/favorites');
+  const result = response.data?.data || response.data;
+  return Array.isArray(result) ? result : [];
 };
 
 /**
