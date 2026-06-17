@@ -106,8 +106,7 @@ const HomeScreen: React.FC = () => {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
-    const target = new Date(dateStr + 'T00:00:00');
-    const diffDays = Math.round((target.getTime() - new Date(today + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round((date.getTime() - new Date(today + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24));
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     const weekday = weekdays[date.getDay()];
     const monthDay = `${date.getMonth() + 1}月${date.getDate()}日`;
@@ -292,15 +291,11 @@ const HomeScreen: React.FC = () => {
           </Text>
         </View>
         <Text style={styles.date}>
-          {(() => {
-            // 手动计算北京时间
-            const beijingTime = new Date(currentTime.getTime() + (8 * 60 * 60 * 1000) + (currentTime.getTimezoneOffset() * 60 * 1000));
-            return beijingTime.toLocaleDateString('zh-CN', {
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long',
-            });
-          })()}
+          {currentTime.toLocaleDateString('zh-CN', {
+            month: 'long',
+            day: 'numeric',
+            weekday: 'long',
+          })}
         </Text>
       </View>
 
