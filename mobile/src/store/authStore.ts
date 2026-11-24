@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, LoginRequest, RegisterRequest } from '../types';
 import * as authService from '../services/auth';
-import { setAuthToken, clearAuthToken } from '../services/api';
+import { setAuthToken, clearAuthToken, setUnauthorizedHandler } from '../services/api';
 
 interface AuthState {
   user: User | null;
@@ -43,7 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (data: any) => {
+  register: async (data: RegisterRequest) => {
     set({ isLoading: true, error: null });
     try {
       const result = await authService.register(data);
@@ -122,3 +122,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
   },
 }));
+
+setUnauthorizedHandler(() => useAuthStore.setState({ user: null, isAuthenticated: false, isLoading: false }));

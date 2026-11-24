@@ -4,6 +4,9 @@ import { ApiResponse } from '../types';
 
 const API_BASE_URL = 'https://xia-laoji-api-production.up.railway.app/api';
 
+let onUnauthorized: (() => void) | undefined;
+export function setUnauthorizedHandler(handler: () => void) { onUnauthorized = handler; }
+
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
@@ -36,11 +39,11 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && error.config?.headers?.Authorization) {
       // Token 过期或无效，清除本地存储
       await AsyncStorage.removeItem('auth_token');
       await AsyncStorage.removeItem('refresh_token');
-      // 可以在这里触发导航到登录页
+      onUnauthorized?.();
     }
     return Promise.reject(error);
   }

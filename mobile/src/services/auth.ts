@@ -18,7 +18,7 @@ export const login = async (data: LoginRequest): Promise<AuthResponse> => {
 /**
  * 用户注册
  */
-export const register = async (data: any): Promise<AuthResponse> => {
+export const register = async (data: RegisterRequest): Promise<AuthResponse> => {
   const response = await api.post('/auth/register', data);
   return response.data.data || response.data;
 };
@@ -27,8 +27,8 @@ export const register = async (data: any): Promise<AuthResponse> => {
  * 获取当前用户信息
  */
 export const getProfile = async (): Promise<User> => {
-  const response = await api.get<User>('/auth/profile');
-  return response.data;
+  const response = await api.get<{ data: { user: User } }>('/auth/profile');
+  return response.data.data.user;
 };
 
 /**

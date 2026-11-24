@@ -31,7 +31,8 @@ export interface LoginRequest {
 export interface RegisterRequest {
   email: string;
   password: string;
-  name: string;
+  code: string;
+  profile?: Partial<User['profile']>;
 }
 
 export interface AuthResponse {
