@@ -294,13 +294,10 @@ router.put(
         return;
       }
 
-      // 返回更详细的错误信息
-      const errorMessage = error.message || '更新用户信息失败';
-      res.status(500).json({
-        error: {
-          message: errorMessage,
-        },
-      });
+      if (error.name === 'ValidationError' || error.name === 'CastError' || error.message === '无效的更新内容') {
+        res.status(400).json({ error: { message: '用户资料或目标格式不正确' } }); return;
+      }
+      res.status(500).json({ error: { message: '更新用户信息失败' } });
     }
   }
 );

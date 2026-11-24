@@ -174,10 +174,13 @@ class AuthService {
     updates: UpdateProfileRequest
   ): Promise<UserWithoutPassword> {
     // 构建更新对象，只包含有值的字段
-    const updateOps: any = {};
+    const updateOps: Record<string, unknown> = {};
+    const profileFields = new Set(['name', 'avatar', 'gender', 'birthday', 'height', 'currentWeight', 'targetWeight', 'activityLevel']);
+    const goalFields = new Set(['dailyCalories', 'protein', 'carbs', 'fat']);
 
     if (updates.profile) {
       Object.keys(updates.profile).forEach((key) => {
+        if (!profileFields.has(key)) throw new Error('无效的更新内容');
         const value = (updates.profile as any)[key];
         if (value !== undefined && value !== null && value !== '') {
           // 对于生日字段，确保是有效的日期
@@ -199,6 +202,7 @@ class AuthService {
 
     if (updates.goals) {
       Object.keys(updates.goals).forEach((key) => {
+        if (!goalFields.has(key)) throw new Error('无效的更新内容');
         const value = (updates.goals as any)[key];
         if (value !== undefined && value !== null && value !== '') {
           updateOps[`goals.${key}`] = value;
@@ -206,11 +210,11 @@ class AuthService {
       });
     }
 
-    // 使用 findOneAndUpdate 跳过必填验证（只更新指定字段）
+    // 更新允许的字段，并启用数据库校验
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updateOps },
-      { new: true, runValidators: false }
+      { new: true, runValidators: true }
     );
 
     if (!user) {

@@ -86,7 +86,7 @@ const FoodSchema = new Schema<IFood>(
     servingSize: {
       type: Number,
       required: [true, 'Serving size is required'],
-      min: [0, 'Serving size cannot be negative'],
+      min: [0.001, 'Serving size must be positive'],
     },
     servingName: {
       type: String,

@@ -45,6 +45,7 @@ export class RecordService {
         }
 
         // 计算营养素（根据食用量和标准份量）
+        if (!Number.isFinite(food.servingSize) || food.servingSize <= 0) throw new Error('Invalid serving size');
         const ratio = item.amount / food.servingSize;
         const nutrition = {
           calories: Math.round(food.nutrition.calories * ratio * 100) / 100,
@@ -270,7 +271,8 @@ export class RecordService {
             throw new Error(`Food not found: ${item.foodId}`);
           }
 
-          const ratio = item.amount / food.servingSize;
+          if (!Number.isFinite(food.servingSize) || food.servingSize <= 0) throw new Error('Invalid serving size');
+        const ratio = item.amount / food.servingSize;
           const nutrition = {
             calories: Math.round(food.nutrition.calories * ratio * 100) / 100,
             protein: Math.round(food.nutrition.protein * ratio * 100) / 100,
