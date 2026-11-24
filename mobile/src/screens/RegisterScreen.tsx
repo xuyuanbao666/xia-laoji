@@ -48,7 +48,7 @@ const RegisterScreen: React.FC = () => {
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     clearError();
-    if (field === 'verifyCode') {
+    if (field === 'verifyCode' || field === 'email') {
       setCodeVerified(false); // 重新输入验证码时重置验证状态
     }
   };
@@ -70,6 +70,7 @@ const RegisterScreen: React.FC = () => {
     try {
       const response = await api.post('/auth/send-code', { email: formData.email.trim() });
       if (response.data?.success) {
+        setCodeVerified(false);
         setCodeSent(true);
         setCountdown(60);
         Alert.alert('已发送', '验证码已发送到您的邮箱，请查收');
@@ -114,9 +115,12 @@ const RegisterScreen: React.FC = () => {
       Alert.alert('提示', '请输入邮箱');
       return false;
     }
-    if (formData.password.length < 6) {
-      Alert.alert('提示', '密码长度至少6位');
+    if (formData.password.length < 8) {
+      Alert.alert('提示', '密码长度至少8位');
       return false;
+    }
+    if (!/^\d{6}$/.test(formData.verifyCode.trim())) {
+      Alert.alert('提示', '请输入6位邮箱验证码'); return false;
     }
     if (formData.password !== formData.confirmPassword) {
       Alert.alert('提示', '两次输入的密码不一致');
@@ -132,9 +136,10 @@ const RegisterScreen: React.FC = () => {
       await register({
         email: formData.email.trim(),
         password: formData.password,
+        code: formData.verifyCode.trim(),
         profile: formData.name.trim() ? { name: formData.name.trim() } : undefined,
       });
-    } catch (err) {}
+    } catch (err) { setCodeVerified(false); }
   };
 
   return (
@@ -202,9 +207,9 @@ const RegisterScreen: React.FC = () => {
             />
           </View>
 
-          {/* 验证码 (可选) */}
+          {/* 验证码 (必填) */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>🔢 验证码 <Text style={{fontSize: 12, color: '#999'}}>(可选)</Text></Text>
+            <Text style={styles.inputLabel}>🔢 验证码 <Text style={{fontSize: 12, color: '#999'}}>(必填)</Text></Text>
             <View style={styles.codeRow}>
               <TextInput
                 style={[styles.input, styles.codeInput]}
@@ -214,7 +219,7 @@ const RegisterScreen: React.FC = () => {
                 onChangeText={(t) => updateField('verifyCode', t)}
                 keyboardType="numeric"
                 maxLength={6}
-                editable={!codeVerified}
+                editable={!isLoading}
               />
               <TouchableOpacity
                 style={[
@@ -222,8 +227,8 @@ const RegisterScreen: React.FC = () => {
                   codeVerified && styles.sendCodeBtnVerified,
                   countdown > 0 && styles.sendCodeBtnDisabled,
                 ]}
-                onPress={codeVerified ? undefined : (codeSent && countdown > 0 ? undefined : handleSendCode)}
-                disabled={codeVerified || sendingCode || (countdown > 0)}
+                onPress={handleSendCode}
+                disabled={sendingCode || (countdown > 0)}
               >
                 <Text style={styles.sendCodeBtnText}>
                   {codeVerified ? '✓ 已验证' : sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : codeSent ? '重新发送' : '发送验证码'}

@@ -1,22 +1,17 @@
 import nodemailer from 'nodemailer';
-import dns from 'dns';
-
-// 强制使用 IPv4
-dns.setDefaultResultOrder('ipv4first');
-
-// QQ邮箱 SMTP 配置 - 使用端口 587 (STARTTLS)
-const transporter = nodemailer.createTransport({
-  host: 'smtp.qq.com',
-  port: 587,
-  secure: false, // 使用 STARTTLS
-  auth: {
-    user: '428738807@qq.com',
-    pass: 'zjtlcblnqyozbged', // 授权码
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+function createTransport() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!user || !pass) throw new Error('SMTP credentials not configured');
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.qq.com',
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: true },
+  });
+}
 
 /**
  * 发送验证码邮件
@@ -26,8 +21,9 @@ export async function sendVerificationCode(
   code: string
 ): Promise<boolean> {
   try {
+    const transporter = createTransport();
     const mailOptions = {
-      from: '"虾牢记" <428738807@qq.com>',
+      from: { name: '虾牢记', address: process.env.SMTP_USER! },
       to: toEmail,
       subject: '🦐 虾牢记 - 邮箱验证码',
       html: `
@@ -49,10 +45,10 @@ export async function sendVerificationCode(
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Verification code sent to ${toEmail}`);
+    
     return true;
   } catch (error) {
-    console.error('Failed to send email:', error);
+    console.error('Failed to send verification email');
     return false;
   }
 }

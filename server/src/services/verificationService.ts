@@ -1,83 +1,41 @@
-// 验证码存储（内存存储，生产环境建议用 Redis）
-interface VerificationRecord {
-  code: string;
-  email: string;
-  expiresAt: number;
-  createdAt: number;
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+const secret = randomBytes(32);
+const TTL = 300000;
+const MAX_ATTEMPTS = 5;
+const MAX_ENTRIES = 10000;
+interface Record { digest: Buffer; expiresAt: number; createdAt: number; attempts: number }
+const records = new Map<string, Record>();
+export const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const digest = (email: string, code: string) =>
+  createHmac('sha256', secret).update(email + ':' + code).digest();
+function prune(now: number) {
+  for (const [key, value] of records) if (value.expiresAt <= now) records.delete(key);
 }
-
-const verificationStore = new Map<string, VerificationRecord>();
-
-// 清理过期验证码（每5分钟执行一次）
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of verificationStore.entries()) {
-    if (record.expiresAt < now) {
-      verificationStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
-
-/**
- * 生成6位随机验证码
- */
-export function generateCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-/**
- * 存储验证码（5分钟有效期）
- */
-export function storeCode(email: string, code: string): void {
-  // 删除该邮箱之前的验证码
-  for (const [key, record] of verificationStore.entries()) {
-    if (record.email === email) {
-      verificationStore.delete(key);
-    }
-  }
-
-  verificationStore.set(email, {
-    code,
-    email,
-    expiresAt: Date.now() + 5 * 60 * 1000, // 5分钟
-    createdAt: Date.now(),
-  });
-
-  console.log(`Code stored for ${email}: ${code}`);
-}
-
-/**
- * 验证码是否有效
- */
-export function verifyCode(email: string, inputCode: string): boolean {
-  const record = verificationStore.get(email);
-
-  if (!record) {
-    console.log(`No code found for ${email}`);
-    return false;
-  }
-
-  if (record.expiresAt < Date.now()) {
-    verificationStore.delete(email);
-    console.log(`Code expired for ${email}`);
-    return false;
-  }
-
-  if (record.code !== inputCode) {
-    console.log(`Invalid code for ${email}: expected ${record.code}, got ${inputCode}`);
-    return false;
-  }
-
-  // 验证成功，删除验证码（一次性使用）
-  verificationStore.delete(email);
-  return true;
-}
-
-/**
- * 检查是否发送太频繁（60秒内只能发一次）
- */
+export function generateCode(): string { return randomInt(100000, 1000000).toString(); }
 export function canSendCode(email: string): boolean {
-  const record = verificationStore.get(email);
-  if (!record) return true;
-  return Date.now() - record.createdAt > 60 * 1000; // 60秒间隔
+  const now = Date.now(), key = normalizeEmail(email);
+  prune(now);
+  const record = records.get(key);
+  return (!record || now - record.createdAt >= 60000) && (records.has(key) || records.size < MAX_ENTRIES);
+}
+export function storeCode(email: string, code: string): void {
+  const key = normalizeEmail(email), now = Date.now();
+  prune(now);
+  if (!records.has(key) && records.size >= MAX_ENTRIES) throw new Error('Verification capacity reached');
+  records.set(key, { digest: digest(key, code), expiresAt: now + TTL, createdAt: now, attempts: 0 });
+}
+export function invalidateCode(email: string): void {
+  const record = records.get(normalizeEmail(email));
+  if (record) record.attempts = MAX_ATTEMPTS;
+}
+export function verifyCode(email: string, code: string, consume = true): boolean {
+  const key = normalizeEmail(email), record = records.get(key);
+  if (!record || record.expiresAt <= Date.now() || record.attempts >= MAX_ATTEMPTS) return false;
+  if (!/^\d{6}$/.test(code) || !timingSafeEqual(record.digest, digest(key, code))) {
+    record.attempts++;
+    return false;
+  }
+  // Consume synchronously before awaiting the database; preserve resend cooldown.
+  if (consume) record.attempts = MAX_ATTEMPTS;
+  return true;
 }

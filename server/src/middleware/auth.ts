@@ -50,9 +50,12 @@ export const authMiddleware = (
     }
 
     // 验证 token
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { userId: string };
 
     // 将 userId 添加到 request 对象
+    if (typeof decoded.userId !== 'string' || !/^[a-f0-9]{24}$/i.test(decoded.userId)) {
+      res.status(401).json({ error: { message: '无效的 token' } }); return;
+    }
     req.userId = decoded.userId;
 
     next();
