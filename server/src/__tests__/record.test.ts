@@ -1,3 +1,4 @@
+import { storeCode } from '../services/verificationService';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../app';
@@ -39,6 +40,12 @@ const testUser = {
   },
 };
 
+function verifiedRegistration() {
+  const code = '123456';
+  storeCode(testUser.email, code);
+  return { ...testUser, code };
+}
+
 describe('记录 API', () => {
   let authToken: string;
   let userId: string;
@@ -58,7 +65,7 @@ describe('记录 API', () => {
     // 创建测试用户
     const userRes = await request(app)
       .post('/api/auth/register')
-      .send(testUser);
+        .send(verifiedRegistration());
 
     authToken = userRes.body.data.token;
     userId = userRes.body.data.user._id;

@@ -1,3 +1,4 @@
+import { storeCode } from '../services/verificationService';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../app';
@@ -25,6 +26,12 @@ const testUser = {
   },
 };
 
+function verifiedRegistration() {
+  const code = '123456';
+  storeCode(testUser.email, code);
+  return { ...testUser, code };
+}
+
 describe('认证 API', () => {
   beforeAll(async () => {
     await setupTestDB();
@@ -39,10 +46,19 @@ describe('认证 API', () => {
   });
 
   describe('POST /api/auth/register', () => {
+    it('rejects incorrect verification codes', async () => {
+      storeCode(testUser.email, '123456');
+      await request(app).post('/api/auth/register').send({ ...testUser, code: '654321' }).expect(400);
+    });
+    it('consumes a valid code and rejects replay', async () => {
+      const payload = verifiedRegistration();
+      await request(app).post('/api/auth/register').send(payload).expect(201);
+      await request(app).post('/api/auth/register').send(payload).expect(400);
+    });
     it('应该成功注册新用户', async () => {
       const res = await request(app)
         .post('/api/auth/register')
-        .send(testUser)
+        .send(verifiedRegistration())
         .expect(201);
 
       expect(res.body.success).toBe(true);
@@ -89,7 +105,7 @@ describe('认证 API', () => {
       expect(res.body.error.message).toContain('密码长度');
     });
 
-    it('应该在缺少 profile 时返回 400', async () => {
+    it('应该在缺少邮箱验证码时返回 400', async () => {
       const res = await request(app)
         .post('/api/auth/register')
         .send({
@@ -98,20 +114,20 @@ describe('认证 API', () => {
         })
         .expect(400);
 
-      expect(res.body.error.message).toContain('用户资料');
+      expect(res.body.error.message).toContain('邮箱验证码');
     });
 
     it('应该在重复注册时返回 409', async () => {
       // 第一次注册
       await request(app)
         .post('/api/auth/register')
-        .send(testUser)
+        .send(verifiedRegistration())
         .expect(201);
 
       // 重复注册
       const res = await request(app)
         .post('/api/auth/register')
-        .send(testUser)
+        .send(verifiedRegistration())
         .expect(409);
 
       expect(res.body.error.message).toContain('已被注册');
@@ -123,7 +139,7 @@ describe('认证 API', () => {
       // 注册用户
       await request(app)
         .post('/api/auth/register')
-        .send(testUser);
+        .send(verifiedRegistration());
     });
 
     it('应该成功登录', async () => {
@@ -184,7 +200,7 @@ describe('认证 API', () => {
       // 注册并获取 token
       const res = await request(app)
         .post('/api/auth/register')
-        .send(testUser);
+        .send(verifiedRegistration());
 
       token = res.body.data.token;
     });
@@ -226,7 +242,7 @@ describe('认证 API', () => {
       // 注册并获取 token
       const res = await request(app)
         .post('/api/auth/register')
-        .send(testUser);
+        .send(verifiedRegistration());
 
       token = res.body.data.token;
     });
