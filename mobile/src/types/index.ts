@@ -137,6 +137,7 @@ export interface DailySummary {
     [key: string]: {
       foods: any[];
       totalCalories: number;
+      totalNutrition: DietRecord['totalNutrition'];
     };
   };
 }

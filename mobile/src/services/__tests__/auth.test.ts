@@ -1,8 +1,9 @@
+import { beforeEach, expect, jest, test } from '@jest/globals';
 import api from '../api';
 import { login, register } from '../auth';
 
 jest.mock('../api', () => ({ __esModule: true, default: { post: jest.fn() } }));
-const post = api.post as jest.Mock;
+const post = api.post as unknown as jest.Mock<() => Promise<unknown>>;
 const user = { _id: 'test-user' };
 const credentials = { email: 'test@example.com', password: 'test-password' };
 beforeEach(() => post.mockReset());

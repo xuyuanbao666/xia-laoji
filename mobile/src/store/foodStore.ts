@@ -34,8 +34,8 @@ export const useFoodStore = create<FoodState>((set, get) => ({
     set({ isLoading: true, error: null, page: 1 });
     try {
       const result = await foodService.searchFoods(query, 1, 50);
-      const foods = result.foods || result.data?.foods || [];
-      const total = result.total || result.data?.total || 0;
+      const foods = result.foods;
+      const total = result.total;
       set({
         searchResults: foods,
         foods: foods,
@@ -50,18 +50,18 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   },
 
   loadMore: async (query: string) => {
-    const { page, hasMore, foods } = get();
-    if (!hasMore) return;
+    const { page, hasMore, foods, isLoading } = get();
+    if (!hasMore || isLoading) return;
 
     set({ isLoading: true });
     try {
       const nextPage = page + 1;
-      const response = await foodService.searchFoods(query, nextPage, 20);
+      const response = await foodService.searchFoods(query, nextPage, 50);
       set({
         foods: [...foods, ...response.foods],
         searchResults: [...foods, ...response.foods],
         page: nextPage,
-        hasMore: response.foods.length < response.total,
+        hasMore: response.foods.length > 0 && foods.length + response.foods.length < response.total,
         isLoading: false,
       });
     } catch (error: any) {
