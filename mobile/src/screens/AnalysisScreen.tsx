@@ -1,3 +1,4 @@
+import { localDateKey } from '../utils/date';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -69,18 +70,18 @@ const AnalysisScreen: React.FC = () => {
     let startDate: string;
 
     if (reportType === 'day') {
-      startDate = today.toISOString().split('T')[0];
+      startDate = localDateKey(today);
     } else if (reportType === 'week') {
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 6);
-      startDate = weekAgo.toISOString().split('T')[0];
+      startDate = localDateKey(weekAgo);
     } else {
       const monthAgo = new Date(today);
       monthAgo.setDate(monthAgo.getDate() - 29);
-      startDate = monthAgo.toISOString().split('T')[0];
+      startDate = localDateKey(monthAgo);
     }
 
-    loadRecords(startDate, today.toISOString().split('T')[0]);
+    loadRecords(startDate, localDateKey(today));
   }, [reportType, loadRecords]);
 
   // 聚合 records 按日期分组
@@ -98,7 +99,7 @@ const AnalysisScreen: React.FC = () => {
     for (let i = dayCount - 1; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = localDateKey(date);
       dates.push(dateStr);
 
       if (reportType === 'day') {
@@ -469,7 +470,7 @@ const AnalysisScreen: React.FC = () => {
               const isOver = cal > calorieGoal;
               const dateObj = new Date(date + 'T00:00:00');
               const dayNum = dateObj.getDate();
-              const isToday = date === new Date().toISOString().split('T')[0];
+              const isToday = date === localDateKey();
 
               return (
                 <TouchableOpacity

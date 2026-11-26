@@ -1,3 +1,4 @@
+import { localDateKey } from '../utils/date';
 import { create } from 'zustand';
 import { DietRecord, CreateRecordRequest, UpdateRecordRequest, DailySummary } from '../types';
 import * as recordService from '../services/record';
@@ -25,8 +26,7 @@ interface RecordState {
  * 获取今天的日期字符串 YYYY-MM-DD
  */
 const getToday = (): string => {
-  const now = new Date();
-  return now.toISOString().split('T')[0];
+  return localDateKey();
 };
 
 export const useRecordStore = create<RecordState>((set, get) => ({

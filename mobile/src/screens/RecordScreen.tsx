@@ -1,3 +1,4 @@
+import { localDateKey } from '../utils/date';
 import React, { useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -48,7 +49,7 @@ const RecordScreen: React.FC = () => {
   const changeDate = (offset: number) => {
     const current = new Date(selectedDate + 'T00:00:00');
     current.setDate(current.getDate() + offset);
-    const newDate = current.toISOString().split('T')[0];
+    const newDate = localDateKey(current);
     setSelectedDate(newDate);
   };
 
@@ -71,7 +72,7 @@ const RecordScreen: React.FC = () => {
   };
 
   // 判断是否是今天
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === localDateKey();
 
   // 日期选择器
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -242,7 +243,7 @@ const RecordScreen: React.FC = () => {
           <View style={styles.datePickerRight}>
             {!isToday && (
               <TouchableOpacity
-                onPress={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                onPress={() => setSelectedDate(localDateKey())}
                 style={styles.dateBackBtn}
               >
                 <Text style={styles.dateBackToToday}>回到今天</Text>
@@ -307,7 +308,7 @@ const RecordScreen: React.FC = () => {
                     if (day === null) return <View key={`empty-${index}`} style={styles.calendarDay} />;
                     const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const isSelected = dateStr === selectedDate;
-                    const isTodayDate = dateStr === new Date().toISOString().split('T')[0];
+                    const isTodayDate = dateStr === localDateKey();
                     const isFuture = new Date(dateStr + 'T00:00:00') > new Date();
 
                     return (
