@@ -1,0 +1,45 @@
+name: Targeted Android login recheck
+on:
+  push:
+    branches: [maintenance/android-install-recheck]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  recheck:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download original verified APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/xuyuanbao666/xia-laoji/actions/artifacts/15155515745/zip -o original.zip
+          echo 'fa954bae38c73006db4d80f6c4d865be62b14864cb56c85fd8ed59e7986c680a  original.zip' | sha256sum -c -
+          mkdir android-evidence
+          unzip -j original.zip xia-laoji-emulator-test.apk SHA256SUMS -d android-evidence
+          (cd android-evidence && sha256sum -c SHA256SUMS)
+          python3 -m py_compile mobile/scripts/android_smoke.py
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify actual login screen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swangle -feature -Vulkan -memory 2048 -cores 2 -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: python3 mobile/scripts/android_smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: targeted-login-evidence
+          path: android-evidence/
+          retention-days: 14
