@@ -6,7 +6,7 @@ jest.mock('../api', () => ({ __esModule: true, default: { post: jest.fn() } }));
 const post = api.post as unknown as jest.Mock<() => Promise<unknown>>;
 const user = { _id: 'test-user' };
 const credentials = { email: 'test@example.com', password: 'test-password' };
-beforeEach(() => post.mockReset());
+beforeEach(() => { post.mockReset(); });
 test('login unwraps the server response before persisting credentials', async () => {
   post.mockResolvedValue({ data: { success: true, data: { user, token: 'test-token' } } });
   await expect(login(credentials)).resolves.toEqual({ user, token: 'test-token' });
