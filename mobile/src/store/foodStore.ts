@@ -21,6 +21,10 @@ interface FoodState {
   clearError: () => void;
 }
 
+const PAGE_SIZE = 50;
+let searchGeneration = 0;
+let currentQuery: string | null = null;
+
 export const useFoodStore = create<FoodState>((set, get) => ({
   foods: [],
   favorites: [],
@@ -31,40 +35,47 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   hasMore: true,
 
   searchFoods: async (query: string) => {
-    set({ isLoading: true, error: null, page: 1 });
+    const generation = ++searchGeneration;
+    currentQuery = query;
+    set({ isLoading: true, error: null, page: 1, hasMore: false, foods: [], searchResults: [] });
     try {
-      const result = await foodService.searchFoods(query, 1, 50);
-      const foods = result.foods || result.data?.foods || [];
-      const total = result.total || result.data?.total || 0;
+      const result = await foodService.searchFoods(query, 1, PAGE_SIZE);
+      if (generation !== searchGeneration) return;
+      const foods = result.foods;
+      const total = result.total;
       set({
         searchResults: foods,
         foods: foods,
         page: 1,
-        hasMore: foods.length < total,
+        hasMore: foods.length > 0 && foods.length < total,
         isLoading: false,
       });
     } catch (error: any) {
+      if (generation !== searchGeneration) return;
       const message = error.response?.data?.message || '搜索失败，请重试';
       set({ error: message, isLoading: false });
     }
   },
 
   loadMore: async (query: string) => {
-    const { page, hasMore, foods } = get();
-    if (!hasMore) return;
+    const { page, hasMore, foods, isLoading } = get();
+    if (!hasMore || isLoading || currentQuery !== query) return;
+    const generation = searchGeneration;
 
     set({ isLoading: true });
     try {
       const nextPage = page + 1;
-      const response = await foodService.searchFoods(query, nextPage, 20);
+      const response = await foodService.searchFoods(query, nextPage, PAGE_SIZE);
+      if (generation !== searchGeneration) return;
       set({
         foods: [...foods, ...response.foods],
         searchResults: [...foods, ...response.foods],
         page: nextPage,
-        hasMore: response.foods.length < response.total,
+        hasMore: response.foods.length > 0 && foods.length + response.foods.length < response.total,
         isLoading: false,
       });
     } catch (error: any) {
+      if (generation !== searchGeneration) return;
       const message = error.response?.data?.message || '加载更多失败';
       set({ error: message, isLoading: false });
     }
@@ -123,7 +134,9 @@ export const useFoodStore = create<FoodState>((set, get) => ({
   },
 
   clearSearch: () => {
-    set({ searchResults: [], foods: [], page: 1, hasMore: true });
+    ++searchGeneration;
+    currentQuery = null;
+    set({ searchResults: [], foods: [], page: 1, hasMore: false, isLoading: false });
   },
 
   clearError: () => {

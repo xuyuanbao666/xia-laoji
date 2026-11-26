@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, LoginRequest, RegisterRequest } from '../types';
 import * as authService from '../services/auth';
-import { setAuthToken, clearAuthToken } from '../services/api';
+import { setAuthToken, clearAuthToken, setUnauthorizedHandler } from '../services/api';
 
 interface AuthState {
   user: User | null;
@@ -28,8 +28,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await authService.login(data);
-      const token = result.token || result.data?.token;
-      const user = result.user || result.data?.user;
+      const { token, user } = result;
       await setAuthToken(token);
       set({
         user,
@@ -43,12 +42,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (data: any) => {
+  register: async (data: RegisterRequest) => {
     set({ isLoading: true, error: null });
     try {
       const result = await authService.register(data);
-      const token = result.token || result.data?.token;
-      const user = result.user || result.data?.user;
+      const { token, user } = result;
       await setAuthToken(token);
       set({
         user,
@@ -81,7 +79,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loadUser: async () => {
     const token = await AsyncStorage.getItem('auth_token');
     if (!token) {
-      set({ isAuthenticated: false, isLoading: false });
+      set({ user: null, isAuthenticated: false, isLoading: false });
       return;
     }
 
@@ -122,3 +120,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
   },
 }));
+
+setUnauthorizedHandler(() => useAuthStore.setState({ user: null, isAuthenticated: false, isLoading: false }));

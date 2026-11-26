@@ -1,3 +1,4 @@
+import { localDateKey } from '../utils/date';
 import api from './api';
 import {
   DietRecord,
@@ -13,12 +14,12 @@ import {
 export const createRecord = async (data: any): Promise<DietRecord> => {
   // 转换为后端期望的格式
   const payload = {
-    date: data.date || new Date().toISOString().split('T')[0],
+    date: data.date || localDateKey(),
     meal: data.meal,
     foods: [{
       foodId: data.foodId,
       name: data.foodName || '',
-      amount: data.amount || 100,
+      amount: data.amount ?? 100,
       nutrition: data.nutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 },
     }],
   };
@@ -57,8 +58,8 @@ export const updateRecord = async (
   id: string,
   data: UpdateRecordRequest
 ): Promise<DietRecord> => {
-  const response = await api.put<DietRecord>(`/records/${id}`, data);
-  return response.data;
+  const response = await api.put<DietRecord | { success: boolean; data: DietRecord }>(`/records/${id}`, data);
+  return 'data' in response.data ? response.data.data : response.data;
 };
 
 /**

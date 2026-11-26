@@ -45,6 +45,7 @@ export class RecordService {
         }
 
         // 计算营养素（根据食用量和标准份量）
+        if (!Number.isFinite(food.servingSize) || food.servingSize <= 0) throw new Error('Invalid serving size');
         const ratio = item.amount / food.servingSize;
         const nutrition = {
           calories: Math.round(food.nutrition.calories * ratio * 100) / 100,
@@ -120,7 +121,7 @@ export class RecordService {
       if (endDate) {
         // 设置结束日期为当天的 23:59:59
         const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setUTCHours(23, 59, 59, 999);
         filter.date.$lte = endOfDay;
       }
     }
@@ -157,10 +158,10 @@ export class RecordService {
   }> {
     // 设置日期范围（当天 00:00:00 到 23:59:59）
     const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
     const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setUTCHours(23, 59, 59, 999);
 
     const records = await DietRecord.find({
       userId: new mongoose.Types.ObjectId(userId),
@@ -270,7 +271,8 @@ export class RecordService {
             throw new Error(`Food not found: ${item.foodId}`);
           }
 
-          const ratio = item.amount / food.servingSize;
+          if (!Number.isFinite(food.servingSize) || food.servingSize <= 0) throw new Error('Invalid serving size');
+        const ratio = item.amount / food.servingSize;
           const nutrition = {
             calories: Math.round(food.nutrition.calories * ratio * 100) / 100,
             protein: Math.round(food.nutrition.protein * ratio * 100) / 100,

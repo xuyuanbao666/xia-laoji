@@ -11,7 +11,9 @@ const router = Router();
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { q, page, limit } = req.query;
-    console.log('Food search - q:', q, 'type:', typeof q);
+    if (q !== undefined && (typeof q !== 'string' || q.length > 100)) {
+      res.status(400).json({ success: false, message: 'Invalid search query' }); return;
+    }
 
     const pageNum = page ? parseInt(page as string, 10) : 1;
     const limitNum = limit ? parseInt(limit as string, 10) : 20;

@@ -1,8 +1,10 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ApiResponse } from '../types';
 
 const API_BASE_URL = 'https://xia-laoji-api-production.up.railway.app/api';
+
+let onUnauthorized: (() => void) | undefined;
+export function setUnauthorizedHandler(handler: () => void) { onUnauthorized = handler; }
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -17,6 +19,9 @@ const api: AxiosInstance = axios.create({
  */
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    if (['/auth/login', '/auth/register', '/auth/send-code', '/auth/verify-code'].includes(config.url || '')) {
+      return config;
+    }
     const token = await AsyncStorage.getItem('auth_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -36,11 +41,13 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    if (error.response?.status === 401) {
-      // Token 过期或无效，清除本地存储
-      await AsyncStorage.removeItem('auth_token');
-      await AsyncStorage.removeItem('refresh_token');
-      // 可以在这里触发导航到登录页
+    if (error.response?.status === 401 && error.config?.headers?.Authorization) {
+      // Ignore a late 401 from a request made with an older session.
+      const token = await AsyncStorage.getItem('auth_token');
+      if (token && error.config.headers.Authorization === `Bearer ${token}`) {
+        await clearAuthToken();
+        onUnauthorized?.();
+      }
     }
     return Promise.reject(error);
   }

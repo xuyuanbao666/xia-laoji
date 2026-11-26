@@ -1,3 +1,4 @@
+import { localDateKey } from '../utils/date';
 import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
@@ -37,7 +38,7 @@ const HomeScreen: React.FC = () => {
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
 
-  const today = currentTime.toISOString().split('T')[0];
+  const today = localDateKey(currentTime);
 
   useFocusEffect(
     useCallback(() => {

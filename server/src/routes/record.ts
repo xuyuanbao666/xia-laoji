@@ -22,7 +22,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response, next: N
     const { date, meal, foods, note, imageUrl } = req.body;
 
     // 验证必填字段
-    if (!date || !meal || !foods || !Array.isArray(foods) || foods.length === 0) {
+    if (!date || !meal || !foods || !Array.isArray(foods) || foods.length === 0 || foods.length > 100) {
       res.status(400).json({
         success: false,
         message: 'Missing required fields: date, meal, foods',
@@ -41,7 +41,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response, next: N
 
     // 验证 foods 结构
     for (const food of foods) {
-      if (!food.foodId || food.amount === undefined || food.amount < 0) {
+      if (!food || typeof food.foodId !== 'string' || !/^[a-f0-9]{24}$/i.test(food.foodId) || typeof food.amount !== 'number' || !Number.isFinite(food.amount) || food.amount < 0 || food.amount > 100000) {
         res.status(400).json({
           success: false,
           message: 'Invalid food entry. Each food must have foodId and amount (>= 0)',
@@ -50,6 +50,9 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response, next: N
       }
     }
 
+    if (typeof date !== 'string' || !Number.isFinite(new Date(date).getTime())) {
+      res.status(400).json({ success: false, message: 'Invalid date' }); return;
+    }
     const recordData: CreateRecordData = {
       date: new Date(date),
       meal,
@@ -208,7 +211,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response, next:
 
     // 验证 foods 结构（如果提供）
     if (foods) {
-      if (!Array.isArray(foods) || foods.length === 0) {
+      if (!Array.isArray(foods) || foods.length === 0 || foods.length > 100) {
         res.status(400).json({
           success: false,
           message: 'foods must be a non-empty array',
@@ -217,7 +220,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response, next:
       }
 
       for (const food of foods) {
-        if (!food.foodId || food.amount === undefined || food.amount < 0) {
+        if (!food || typeof food.foodId !== 'string' || !/^[a-f0-9]{24}$/i.test(food.foodId) || typeof food.amount !== 'number' || !Number.isFinite(food.amount) || food.amount < 0 || food.amount > 100000) {
           res.status(400).json({
             success: false,
             message: 'Invalid food entry. Each food must have foodId and amount (>= 0)',

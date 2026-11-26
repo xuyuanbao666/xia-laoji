@@ -19,7 +19,7 @@ export class FoodService {
     let filter: any = {};
 
     if (query && query.trim()) {
-      const searchQuery = query.trim();
+      const searchQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\const searchQuery = query.trim();');
       // 使用正则模糊搜索（支持中英文）
       filter.$or = [
         { name: { $regex: searchQuery, $options: 'i' } },

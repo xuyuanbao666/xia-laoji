@@ -1,14 +1,11 @@
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import connectDB from './config/database';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/user';
 import foodRoutes from './routes/food';
 import recordRoutes from './routes/record';
-
-// Load environment variables
-dotenv.config();
 
 // Create Express application
 const app = express();
@@ -16,8 +13,9 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.disable('x-powered-by');
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -39,7 +37,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   console.error(err.stack);
   res.status(err.status || 500).json({
     error: {
-      message: err.message || 'Internal Server Error',
+      message: err.status && err.status < 500 ? 'Invalid request' : 'Internal Server Error',
     }
   });
 });
