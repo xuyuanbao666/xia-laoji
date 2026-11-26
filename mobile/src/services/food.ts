@@ -15,8 +15,8 @@ export const searchFoods = async (query: string, page = 1, limit = 20): Promise<
  * 根据 ID 获取食物详情
  */
 export const getFoodById = async (id: string): Promise<Food> => {
-  const response = await api.get<Food>(`/foods/${id}`);
-  return response.data;
+  const response = await api.get<Food | { success: boolean; data: Food }>(`/foods/${id}`);
+  return 'data' in response.data ? response.data.data : response.data;
 };
 
 /**

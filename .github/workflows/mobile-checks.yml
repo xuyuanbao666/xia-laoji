@@ -22,5 +22,5 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
-      - run: npx jest --preset react-native --ci --runInBand src/services/__tests__/auth.test.ts
+      - run: npx jest --preset react-native --ci --runInBand src/services/__tests__
       - run: npx tsc --noEmit
